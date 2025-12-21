@@ -36,20 +36,29 @@ export function Sidebar() {
   };
 
   return (
-    <div className="flex h-full w-64 flex-col bg-zinc-950 border-r border-zinc-800">
+    <div className="flex h-full w-64 flex-col bg-deep-space border-r border-filament relative z-10">
       {/* Logo */}
-      <div className="flex h-16 items-center px-6 border-b border-zinc-800">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center">
-            <span className="text-white font-bold text-lg">K</span>
+      <div className="flex h-16 items-center px-6 border-b border-filament">
+        <Link href="/" className="flex items-center gap-3 group">
+          {/* Quipu-inspired logo mark */}
+          <div className="relative h-9 w-9">
+            {/* Outer ring */}
+            <div className="absolute inset-0 rounded-full border border-solar-gold/30" />
+            {/* Inner node */}
+            <div className="absolute inset-2 rounded-full bg-solar-gold/20 flex items-center justify-center">
+              <div className="h-2 w-2 rounded-full bg-solar-gold" />
+            </div>
+            {/* Orbital filament */}
+            <div className="absolute -top-0.5 left-1/2 w-px h-2 bg-gradient-to-b from-solar-gold/40 to-transparent" />
+            <div className="absolute -bottom-0.5 left-1/2 w-px h-2 bg-gradient-to-t from-solar-gold/40 to-transparent" />
           </div>
-          <span className="text-xl font-semibold text-white">Kipu</span>
+          <span className="text-xl font-semibold text-primary-soft tracking-wide">Kipu</span>
         </Link>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {navigation.map((item) => {
+        {navigation.map((item, index) => {
           const isActive = pathname === item.href ||
             (item.href !== '/' && pathname.startsWith(item.href));
 
@@ -58,24 +67,39 @@ export function Sidebar() {
               key={item.name}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all relative group',
                 isActive
-                  ? 'bg-teal-500/10 text-teal-400'
-                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
+                  ? 'bg-solar-gold/10 text-solar-gold'
+                  : 'text-secondary-soft hover:text-primary-soft hover:bg-cold-slate/50'
               )}
+              style={{ animationDelay: `${index * 50}ms` }}
             >
-              <item.icon className="h-5 w-5" />
+              {/* Active indicator node */}
+              {isActive && (
+                <div className="absolute -left-3 top-1/2 -translate-y-1/2 flex items-center">
+                  <div className="w-1.5 h-1.5 rounded-full bg-solar-gold" />
+                  <div className="w-3 h-px bg-gradient-to-r from-solar-gold to-transparent" />
+                </div>
+              )}
+
+              <item.icon className={cn(
+                "h-5 w-5 transition-colors",
+                isActive ? "text-solar-gold" : "text-muted-soft group-hover:text-secondary-soft"
+              )} />
               {item.name}
             </Link>
           );
         })}
       </nav>
 
+      {/* Filament separator */}
+      <div className="mx-6 filament-separator" />
+
       {/* Sign out */}
-      <div className="p-3 border-t border-zinc-800">
+      <div className="p-3">
         <Button
           variant="ghost"
-          className="w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+          className="w-full justify-start text-muted-soft hover:text-primary-soft hover:bg-cold-slate/50 gravity-pull"
           onClick={handleSignOut}
         >
           <LogOut className="h-5 w-5 mr-3" />

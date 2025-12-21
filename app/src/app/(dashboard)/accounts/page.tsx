@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Plus, Check, ExternalLink } from 'lucide-react';
+import { Plus, Check } from 'lucide-react';
 import type { Platform, Connection } from '@/types';
 
 const platforms: {
@@ -11,7 +11,7 @@ const platforms: {
   name: string;
   description: string;
   icon: string;
-  color: string;
+  accentColor: string;
   canTrigger: boolean;
 }[] = [
   {
@@ -19,7 +19,7 @@ const platforms: {
     name: 'Instagram',
     description: 'Posts, Reels, Stories',
     icon: '/icons/instagram.svg',
-    color: 'from-purple-500 to-pink-500',
+    accentColor: '#E6C27A',
     canTrigger: true,
   },
   {
@@ -27,7 +27,7 @@ const platforms: {
     name: 'YouTube',
     description: 'Videos, Shorts',
     icon: '/icons/youtube.svg',
-    color: 'from-red-500 to-red-600',
+    accentColor: '#C48A5A',
     canTrigger: false,
   },
   {
@@ -35,7 +35,7 @@ const platforms: {
     name: 'TikTok',
     description: 'Videos',
     icon: '/icons/tiktok.svg',
-    color: 'from-zinc-900 to-zinc-800',
+    accentColor: '#4FD1C5',
     canTrigger: false,
   },
   {
@@ -43,7 +43,7 @@ const platforms: {
     name: 'Twitter / X',
     description: 'Tweets, Threads',
     icon: '/icons/twitter.svg',
-    color: 'from-zinc-900 to-zinc-800',
+    accentColor: '#9AA3B2',
     canTrigger: true,
   },
   {
@@ -51,7 +51,7 @@ const platforms: {
     name: 'LinkedIn',
     description: 'Posts, Articles',
     icon: '/icons/linkedin.svg',
-    color: 'from-blue-600 to-blue-700',
+    accentColor: '#4FD1C5',
     canTrigger: false,
   },
   {
@@ -59,7 +59,7 @@ const platforms: {
     name: 'Facebook',
     description: 'Posts, Reels',
     icon: '/icons/facebook.svg',
-    color: 'from-blue-500 to-blue-600',
+    accentColor: '#C48A5A',
     canTrigger: true,
   },
   {
@@ -67,7 +67,7 @@ const platforms: {
     name: 'Threads',
     description: 'Text posts',
     icon: '/icons/threads.svg',
-    color: 'from-zinc-900 to-zinc-800',
+    accentColor: '#E6C27A',
     canTrigger: false,
   },
 ];
@@ -94,49 +94,65 @@ export default async function AccountsPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">Connected Accounts</h1>
-        <p className="text-zinc-400 mt-1">
-          Manage your social media connections
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold text-[#E6E8EF] tracking-wide">Connected Nodes</h1>
+        <p className="text-[#9AA3B2]">
+          Manage your platform connections
         </p>
       </div>
 
+      {/* Filament separator */}
+      <div className="filament-separator" />
+
       {/* Platforms Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {platforms.map((platform) => {
-          const connections = connectionsByPlatform[platform.id] || [];
-          const hasConnections = connections.length > 0;
+        {platforms.map((platform, index) => {
+          const platformConnections = connectionsByPlatform[platform.id] || [];
+          const hasConnections = platformConnections.length > 0;
 
           return (
             <Card
               key={platform.id}
-              className="bg-zinc-900 border-zinc-800 overflow-hidden"
+              className="bg-[#0B1020]/60 border-[rgba(230,194,122,0.1)] backdrop-blur-sm overflow-hidden group"
+              style={{
+                animation: `metricEase 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards`,
+                animationDelay: `${index * 50}ms`,
+                opacity: 0
+              }}
             >
-              {/* Platform Header */}
-              <div className={`h-2 bg-gradient-to-r ${platform.color}`} />
+              {/* Platform Header - thin filament line */}
+              <div
+                className="h-px"
+                style={{
+                  background: `linear-gradient(90deg, transparent 0%, ${platform.accentColor}40 50%, transparent 100%)`
+                }}
+              />
 
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-zinc-800 flex items-center justify-center">
+                    <div
+                      className="h-10 w-10 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: `${platform.accentColor}15` }}
+                    >
                       <span className="text-xl">{getPlatformEmoji(platform.id)}</span>
                     </div>
                     <div>
-                      <CardTitle className="text-white text-base">
+                      <CardTitle className="text-[#E6E8EF] text-base">
                         {platform.name}
                       </CardTitle>
-                      <CardDescription className="text-zinc-500 text-sm">
+                      <CardDescription className="text-[#6B7280] text-sm">
                         {platform.description}
                       </CardDescription>
                     </div>
                   </div>
                   <div className="flex gap-1">
                     {platform.canTrigger && (
-                      <Badge variant="outline" className="text-xs border-teal-500/50 text-teal-400">
+                      <Badge variant="outline" className="text-xs border-[#4FD1C5]/30 text-[#4FD1C5] bg-[#4FD1C5]/5">
                         Trigger
                       </Badge>
                     )}
-                    <Badge variant="outline" className="text-xs border-zinc-700 text-zinc-400">
+                    <Badge variant="outline" className="text-xs border-[rgba(230,194,122,0.2)] text-[#9AA3B2] bg-transparent">
                       Publish
                     </Badge>
                   </div>
@@ -145,32 +161,35 @@ export default async function AccountsPage() {
 
               <CardContent className="space-y-3">
                 {/* Connected Accounts */}
-                {connections.map((conn) => (
+                {platformConnections.map((conn: Connection) => (
                   <div
                     key={conn.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50"
+                    className="flex items-center justify-between p-3 rounded-lg bg-[#1C2233]/50 border border-[rgba(230,194,122,0.05)]"
                   >
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
+                      <Avatar className="h-8 w-8 ring-1 ring-[rgba(230,194,122,0.1)]">
                         <AvatarImage src={conn.platform_avatar_url || undefined} />
-                        <AvatarFallback className="bg-zinc-700 text-xs">
+                        <AvatarFallback className="bg-[#1C2233] text-[#9AA3B2] text-xs">
                           {conn.platform_username?.[0]?.toUpperCase() || '?'}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="text-sm font-medium text-white">
+                        <p className="text-sm font-medium text-[#E6E8EF]">
                           {conn.platform_display_name || conn.platform_username}
                         </p>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-[#6B7280]">
                           @{conn.platform_username}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {conn.is_active ? (
-                        <Check className="h-4 w-4 text-green-400" />
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-1.5 h-1.5 rounded-full bg-[#4FD1C5]" />
+                          <span className="text-xs text-[#4FD1C5]">Active</span>
+                        </div>
                       ) : (
-                        <Badge variant="outline" className="text-xs border-red-500/50 text-red-400">
+                        <Badge variant="outline" className="text-xs border-red-500/30 text-red-400">
                           Disconnected
                         </Badge>
                       )}
@@ -181,12 +200,12 @@ export default async function AccountsPage() {
                 {/* Connect Button */}
                 <Button
                   variant="outline"
-                  className="w-full border-dashed border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-600"
+                  className="w-full border-dashed"
                   asChild
                 >
                   <a href={`/api/oauth/${platform.id}/initiate`}>
                     <Plus className="h-4 w-4 mr-2" />
-                    {hasConnections ? 'Add another account' : 'Connect'}
+                    {hasConnections ? 'Add another node' : 'Connect'}
                   </a>
                 </Button>
               </CardContent>

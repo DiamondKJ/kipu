@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { FilamentBackground } from '@/components/ui/filament-background';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -56,17 +57,27 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-950 px-4">
-      <Card className="w-full max-w-md bg-zinc-900 border-zinc-800">
+    <div className="min-h-screen flex items-center justify-center bg-[#05060A] px-4 relative">
+      <FilamentBackground />
+
+      <Card className="w-full max-w-md bg-[#0B1020]/80 border-[rgba(230,194,122,0.1)] backdrop-blur-sm relative z-10">
         <CardHeader className="text-center">
+          {/* Quipu-inspired logo */}
           <div className="flex justify-center mb-4">
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center">
-              <span className="text-white font-bold text-2xl">K</span>
+            <div className="relative h-14 w-14">
+              <div className="absolute inset-0 rounded-full border border-[#E6C27A]/30" />
+              <div className="absolute inset-2 rounded-full bg-[#E6C27A]/20 flex items-center justify-center">
+                <div className="h-3 w-3 rounded-full bg-[#E6C27A]" />
+              </div>
+              <div className="absolute -top-1 left-1/2 w-px h-3 bg-gradient-to-b from-[#E6C27A]/40 to-transparent" />
+              <div className="absolute -bottom-1 left-1/2 w-px h-3 bg-gradient-to-t from-[#E6C27A]/40 to-transparent" />
+              <div className="absolute top-1/2 -left-1 h-px w-3 bg-gradient-to-r from-[#E6C27A]/40 to-transparent" />
+              <div className="absolute top-1/2 -right-1 h-px w-3 bg-gradient-to-l from-[#E6C27A]/40 to-transparent" />
             </div>
           </div>
-          <CardTitle className="text-2xl text-white">Welcome back</CardTitle>
-          <CardDescription className="text-zinc-400">
-            Sign in to your Kipu account
+          <CardTitle className="text-2xl text-[#E6E8EF]">Welcome back</CardTitle>
+          <CardDescription className="text-[#9AA3B2]">
+            Sign in to access your network
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -78,7 +89,7 @@ export default function LoginPage() {
 
           <Button
             variant="outline"
-            className="w-full bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700"
+            className="w-full"
             onClick={handleGoogleLogin}
             disabled={loading}
           >
@@ -104,49 +115,49 @@ export default function LoginPage() {
           </Button>
 
           <div className="relative">
-            <Separator className="bg-zinc-800" />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 px-2 text-xs text-zinc-500">
+            <Separator className="bg-[rgba(230,194,122,0.1)]" />
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0B1020] px-2 text-xs text-[#6B7280]">
               or continue with email
             </span>
           </div>
 
           <form onSubmit={handleEmailLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-zinc-300">Email</Label>
+              <Label htmlFor="email" className="text-[#9AA3B2]">Email</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+                className="bg-[#1C2233]/50 border-[rgba(230,194,122,0.1)] text-[#E6E8EF] placeholder:text-[#6B7280] focus:border-[#E6C27A]/30 focus:ring-[#E6C27A]/20"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-zinc-300">Password</Label>
+              <Label htmlFor="password" className="text-[#9AA3B2]">Password</Label>
               <Input
                 id="password"
                 type="password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+                className="bg-[#1C2233]/50 border-[rgba(230,194,122,0.1)] text-[#E6E8EF] placeholder:text-[#6B7280] focus:border-[#E6C27A]/30 focus:ring-[#E6C27A]/20"
                 required
               />
             </div>
             <Button
               type="submit"
-              className="w-full bg-teal-500 hover:bg-teal-600 text-white"
+              className="w-full"
               disabled={loading}
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? 'Connecting...' : 'Sign in'}
             </Button>
           </form>
 
-          <p className="text-center text-sm text-zinc-400">
+          <p className="text-center text-sm text-[#9AA3B2]">
             Don&apos;t have an account?{' '}
-            <Link href="/signup" className="text-teal-400 hover:text-teal-300">
+            <Link href="/signup" className="text-[#E6C27A] hover:text-[#E6C27A]/80 transition-colors">
               Sign up
             </Link>
           </p>
