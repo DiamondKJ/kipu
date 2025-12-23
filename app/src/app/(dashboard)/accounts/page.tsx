@@ -10,7 +10,8 @@ const platforms: {
   id: Platform;
   name: string;
   description: string;
-  icon: string;
+  logo?: string;
+  emoji: string;
   accentColor: string;
   canTrigger: boolean;
 }[] = [
@@ -18,7 +19,7 @@ const platforms: {
     id: 'instagram',
     name: 'Instagram',
     description: 'Posts, Reels, Stories',
-    icon: '/icons/instagram.svg',
+    emoji: '📸',
     accentColor: '#E6C27A',
     canTrigger: true,
   },
@@ -26,15 +27,16 @@ const platforms: {
     id: 'youtube',
     name: 'YouTube',
     description: 'Videos, Shorts',
-    icon: '/icons/youtube.svg',
-    accentColor: '#C48A5A',
-    canTrigger: false,
+    logo: '/youtube-logo.webp',
+    emoji: '▶️',
+    accentColor: '#FF0000',
+    canTrigger: true,
   },
   {
     id: 'tiktok',
     name: 'TikTok',
     description: 'Videos',
-    icon: '/icons/tiktok.svg',
+    emoji: '🎵',
     accentColor: '#4FD1C5',
     canTrigger: false,
   },
@@ -42,7 +44,7 @@ const platforms: {
     id: 'twitter',
     name: 'Twitter / X',
     description: 'Tweets, Threads',
-    icon: '/icons/twitter.svg',
+    emoji: '𝕏',
     accentColor: '#9AA3B2',
     canTrigger: true,
   },
@@ -50,15 +52,16 @@ const platforms: {
     id: 'linkedin',
     name: 'LinkedIn',
     description: 'Posts, Articles',
-    icon: '/icons/linkedin.svg',
-    accentColor: '#4FD1C5',
-    canTrigger: false,
+    logo: '/linkedin-logo.webp',
+    emoji: '💼',
+    accentColor: '#0A66C2',
+    canTrigger: true,
   },
   {
     id: 'facebook',
     name: 'Facebook',
     description: 'Posts, Reels',
-    icon: '/icons/facebook.svg',
+    emoji: '📘',
     accentColor: '#C48A5A',
     canTrigger: true,
   },
@@ -66,7 +69,7 @@ const platforms: {
     id: 'threads',
     name: 'Threads',
     description: 'Text posts',
-    icon: '/icons/threads.svg',
+    emoji: '🧵',
     accentColor: '#E6C27A',
     canTrigger: false,
   },
@@ -132,10 +135,18 @@ export default async function AccountsPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div
-                      className="h-10 w-10 rounded-lg flex items-center justify-center"
+                      className="h-10 w-10 rounded-lg flex items-center justify-center overflow-hidden"
                       style={{ backgroundColor: `${platform.accentColor}15` }}
                     >
-                      <span className="text-xl">{getPlatformEmoji(platform.id)}</span>
+                      {platform.logo ? (
+                        <img
+                          src={platform.logo}
+                          alt={platform.name}
+                          className="h-6 w-6 object-contain"
+                        />
+                      ) : (
+                        <span className="text-xl">{platform.emoji}</span>
+                      )}
                     </div>
                     <div>
                       <CardTitle className="text-[#E6E8EF] text-base">
