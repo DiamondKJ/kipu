@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -10,38 +10,68 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, ArrowRight, Check, Zap } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Zap, Loader2 } from 'lucide-react';
 import type { Platform } from '@/types';
 
 type Step = 'name' | 'trigger' | 'actions' | 'review';
 
-const triggerPlatforms: { id: Platform; name: string; icon: string }[] = [
-  { id: 'instagram', name: 'Instagram', icon: '📸' },
-  { id: 'twitter', name: 'Twitter / X', icon: '𝕏' },
-  { id: 'facebook', name: 'Facebook', icon: '📘' },
-];
+interface Connection {
+  id: string;
+  platform: Platform;
+  platform_username: string;
+  platform_display_name: string;
+  platform_avatar_url: string | null;
+  is_active: boolean;
+}
 
-const actionPlatforms: { id: Platform; name: string; icon: string }[] = [
-  { id: 'instagram', name: 'Instagram', icon: '📸' },
-  { id: 'youtube', name: 'YouTube', icon: '▶️' },
-  { id: 'tiktok', name: 'TikTok', icon: '🎵' },
-  { id: 'twitter', name: 'Twitter / X', icon: '𝕏' },
-  { id: 'linkedin', name: 'LinkedIn', icon: '💼' },
-  { id: 'facebook', name: 'Facebook', icon: '📘' },
-  { id: 'threads', name: 'Threads', icon: '🧵' },
-];
+const PLATFORM_INFO: Record<string, { name: string; icon: string; color: string }> = {
+  youtube: { name: 'YouTube', icon: '▶️', color: '#FF0000' },
+  linkedin: { name: 'LinkedIn', icon: '💼', color: '#0A66C2' },
+  instagram: { name: 'Instagram', icon: '📸', color: '#E4405F' },
+  twitter: { name: 'Twitter / X', icon: '𝕏', color: '#1DA1F2' },
+  tiktok: { name: 'TikTok', icon: '🎵', color: '#000000' },
+  facebook: { name: 'Facebook', icon: '📘', color: '#1877F2' },
+  threads: { name: 'Threads', icon: '🧵', color: '#000000' },
+};
 
 export default function NewWorkflowPage() {
   const [step, setStep] = useState<Step>('name');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [triggerPlatform, setTriggerPlatform] = useState<Platform | null>(null);
-  const [selectedActions, setSelectedActions] = useState<Platform[]>([]);
+  const [triggerConnectionId, setTriggerConnectionId] = useState<string | null>(null);
+  const [selectedActionIds, setSelectedActionIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingConnections, setLoadingConnections] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [connections, setConnections] = useState<Connection[]>([]);
 
   const router = useRouter();
   const supabase = createClient();
+
+  // Fetch user's connections
+  useEffect(() => {
+    async function fetchConnections() {
+      setLoadingConnections(true);
+      const { data, error } = await supabase
+        .from('connections')
+        .select('id, platform, platform_username, platform_display_name, platform_avatar_url, is_active')
+        .eq('is_active', true)
+        .in('platform', ['youtube', 'linkedin']); // Only YouTube and LinkedIn for now
+
+      if (!error && data) {
+        setConnections(data as Connection[]);
+      }
+      setLoadingConnections(false);
+    }
+
+    fetchConnections();
+  }, [supabase]);
+
+  // Get the selected trigger connection
+  const triggerConnection = connections.find((c) => c.id === triggerConnectionId);
+
+  // Get available action connections (exclude trigger)
+  const actionConnections = connections.filter((c) => c.id !== triggerConnectionId);
 
   const steps: { id: Step; label: string }[] = [
     { id: 'name', label: 'Name' },
@@ -57,9 +87,9 @@ export default function NewWorkflowPage() {
       case 'name':
         return name.trim().length > 0;
       case 'trigger':
-        return triggerPlatform !== null;
+        return triggerConnectionId !== null;
       case 'actions':
-        return selectedActions.length > 0;
+        return selectedActionIds.length > 0;
       case 'review':
         return true;
       default:
@@ -81,16 +111,16 @@ export default function NewWorkflowPage() {
     }
   };
 
-  const toggleAction = (platform: Platform) => {
-    setSelectedActions((prev) =>
-      prev.includes(platform)
-        ? prev.filter((p) => p !== platform)
-        : [...prev, platform]
+  const toggleAction = (connectionId: string) => {
+    setSelectedActionIds((prev) =>
+      prev.includes(connectionId)
+        ? prev.filter((id) => id !== connectionId)
+        : [...prev, connectionId]
     );
   };
 
   const handleCreate = async () => {
-    if (!triggerPlatform || selectedActions.length === 0) return;
+    if (!triggerConnectionId || selectedActionIds.length === 0) return;
 
     setLoading(true);
     setError(null);
@@ -103,7 +133,7 @@ export default function NewWorkflowPage() {
       // Get user's team (for now, use user_id as team_id placeholder)
       const teamId = user.id;
 
-      // Create workflow
+      // Create workflow with trigger connection
       const { data: workflow, error: workflowError } = await supabase
         .from('workflows')
         .insert({
@@ -111,6 +141,7 @@ export default function NewWorkflowPage() {
           name,
           description: description || null,
           is_active: false,
+          trigger_connection_id: triggerConnectionId,
           trigger_action: 'on_new_post',
         })
         .select()
@@ -118,17 +149,25 @@ export default function NewWorkflowPage() {
 
       if (workflowError) throw workflowError;
 
-      // Create workflow steps for each action
-      const steps = selectedActions.map((platform, index) => ({
-        workflow_id: workflow.id,
-        step_order: index + 1,
-        step_type: 'publish' as const,
-        config: { platform },
-      }));
+      // Create workflow steps for each target connection
+      const workflowSteps = selectedActionIds.map((connectionId, index) => {
+        const connection = connections.find((c) => c.id === connectionId);
+        return {
+          workflow_id: workflow.id,
+          step_order: index + 1,
+          step_type: 'publish' as const,
+          target_connection_id: connectionId,
+          config: {
+            type: 'publish',
+            platform: connection?.platform,
+            use_original_caption: true,
+          },
+        };
+      });
 
       const { error: stepsError } = await supabase
         .from('workflow_steps')
-        .insert(steps);
+        .insert(workflowSteps);
 
       if (stepsError) throw stepsError;
 
@@ -235,56 +274,111 @@ export default function NewWorkflowPage() {
 
           {step === 'trigger' && (
             <div className="grid gap-3">
-              {triggerPlatforms.map((platform) => (
-                <button
-                  key={platform.id}
-                  onClick={() => setTriggerPlatform(platform.id)}
-                  className={`flex items-center gap-4 p-4 rounded-lg border transition-colors text-left ${
-                    triggerPlatform === platform.id
-                      ? 'bg-teal-500/10 border-teal-500'
-                      : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-600'
-                  }`}
-                >
-                  <div className="h-12 w-12 rounded-lg bg-zinc-800 flex items-center justify-center text-2xl">
-                    {platform.icon}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-white">{platform.name}</p>
-                    <p className="text-sm text-zinc-500">
-                      Trigger when new content is posted
-                    </p>
-                  </div>
-                  {triggerPlatform === platform.id && (
-                    <Check className="h-5 w-5 text-teal-400" />
-                  )}
-                </button>
-              ))}
+              {loadingConnections ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+                </div>
+              ) : connections.length === 0 ? (
+                <div className="text-center py-8 space-y-3">
+                  <p className="text-zinc-400">No accounts connected</p>
+                  <Button asChild variant="outline" className="border-zinc-700">
+                    <Link href="/accounts">Connect YouTube or LinkedIn</Link>
+                  </Button>
+                </div>
+              ) : (
+                connections.map((connection) => {
+                  const info = PLATFORM_INFO[connection.platform];
+                  return (
+                    <button
+                      key={connection.id}
+                      onClick={() => setTriggerConnectionId(connection.id)}
+                      className={`flex items-center gap-4 p-4 rounded-lg border transition-colors text-left ${
+                        triggerConnectionId === connection.id
+                          ? 'bg-teal-500/10 border-teal-500'
+                          : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-600'
+                      }`}
+                    >
+                      <div
+                        className="h-12 w-12 rounded-lg flex items-center justify-center text-2xl"
+                        style={{ backgroundColor: `${info?.color}20` }}
+                      >
+                        {connection.platform_avatar_url ? (
+                          <img
+                            src={connection.platform_avatar_url}
+                            alt=""
+                            className="h-10 w-10 rounded-lg object-cover"
+                          />
+                        ) : (
+                          info?.icon
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-white">
+                          {connection.platform_display_name || connection.platform_username}
+                        </p>
+                        <p className="text-sm text-zinc-500">
+                          {info?.name} • Trigger on new content
+                        </p>
+                      </div>
+                      {triggerConnectionId === connection.id && (
+                        <Check className="h-5 w-5 text-teal-400" />
+                      )}
+                    </button>
+                  );
+                })
+              )}
             </div>
           )}
 
           {step === 'actions' && (
             <div className="grid gap-3 sm:grid-cols-2">
-              {actionPlatforms
-                .filter((p) => p.id !== triggerPlatform)
-                .map((platform) => (
-                  <button
-                    key={platform.id}
-                    onClick={() => toggleAction(platform.id)}
-                    className={`flex items-center gap-3 p-4 rounded-lg border transition-colors text-left ${
-                      selectedActions.includes(platform.id)
-                        ? 'bg-teal-500/10 border-teal-500'
-                        : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-600'
-                    }`}
-                  >
-                    <div className="h-10 w-10 rounded-lg bg-zinc-800 flex items-center justify-center text-xl">
-                      {platform.icon}
-                    </div>
-                    <p className="font-medium text-white flex-1">{platform.name}</p>
-                    {selectedActions.includes(platform.id) && (
-                      <Check className="h-4 w-4 text-teal-400" />
-                    )}
-                  </button>
-                ))}
+              {actionConnections.length === 0 ? (
+                <div className="col-span-2 text-center py-8 space-y-3">
+                  <p className="text-zinc-400">No other accounts to publish to</p>
+                  <Button asChild variant="outline" className="border-zinc-700">
+                    <Link href="/accounts">Connect more accounts</Link>
+                  </Button>
+                </div>
+              ) : (
+                actionConnections.map((connection) => {
+                  const info = PLATFORM_INFO[connection.platform];
+                  return (
+                    <button
+                      key={connection.id}
+                      onClick={() => toggleAction(connection.id)}
+                      className={`flex items-center gap-3 p-4 rounded-lg border transition-colors text-left ${
+                        selectedActionIds.includes(connection.id)
+                          ? 'bg-teal-500/10 border-teal-500'
+                          : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-600'
+                      }`}
+                    >
+                      <div
+                        className="h-10 w-10 rounded-lg flex items-center justify-center text-xl"
+                        style={{ backgroundColor: `${info?.color}20` }}
+                      >
+                        {connection.platform_avatar_url ? (
+                          <img
+                            src={connection.platform_avatar_url}
+                            alt=""
+                            className="h-8 w-8 rounded-lg object-cover"
+                          />
+                        ) : (
+                          info?.icon
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-white">
+                          {connection.platform_display_name || connection.platform_username}
+                        </p>
+                        <p className="text-xs text-zinc-500">{info?.name}</p>
+                      </div>
+                      {selectedActionIds.includes(connection.id) && (
+                        <Check className="h-4 w-4 text-teal-400" />
+                      )}
+                    </button>
+                  );
+                })
+              )}
             </div>
           )}
 
@@ -316,7 +410,10 @@ export default function NewWorkflowPage() {
                     Trigger
                   </p>
                   <p className="text-white">
-                    {triggerPlatforms.find((p) => p.id === triggerPlatform)?.name}
+                    {triggerConnection?.platform_display_name || triggerConnection?.platform_username}
+                    <span className="text-zinc-500 ml-2">
+                      ({PLATFORM_INFO[triggerConnection?.platform || '']?.name})
+                    </span>
                   </p>
                 </div>
               </div>
@@ -326,15 +423,16 @@ export default function NewWorkflowPage() {
                   Publish to
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {selectedActions.map((action) => {
-                    const platform = actionPlatforms.find((p) => p.id === action);
+                  {selectedActionIds.map((actionId) => {
+                    const connection = connections.find((c) => c.id === actionId);
+                    const info = PLATFORM_INFO[connection?.platform || ''];
                     return (
                       <Badge
-                        key={action}
+                        key={actionId}
                         variant="outline"
                         className="border-zinc-700 text-zinc-300"
                       >
-                        {platform?.icon} {platform?.name}
+                        {info?.icon} {connection?.platform_display_name || connection?.platform_username}
                       </Badge>
                     );
                   })}
