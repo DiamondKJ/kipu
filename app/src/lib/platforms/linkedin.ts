@@ -264,4 +264,129 @@ export class LinkedInService extends BasePlatformService {
 
     return { mediaId: asset };
   }
+
+  /**
+   * Get a specific post by ID
+   */
+  async getPost(postId: string): Promise<LinkedInPost | null> {
+    const accessToken = await this.ensureValidToken();
+
+    const params = new URLSearchParams({
+      q: 'ids',
+      ids: postId,
+    });
+
+    const response = await fetch(`${this.API_BASE}/ugcPosts?${params}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'X-Restli-Protocol-Version': '2.0.0',
+      },
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    const results = data.results || {};
+    return results[postId] || null;
+  }
+
+  /**
+   * List recent posts from the authenticated user
+   * Note: LinkedIn API has limitations on listing user's own posts
+   */
+  async listRecentPosts(count: number = 10): Promise<LinkedInPost[]> {
+    const accessToken = await this.ensureValidToken();
+    const authorUrn = this.getMemberUrn();
+
+    const params = new URLSearchParams({
+      q: 'authors',
+      authors: `List(${authorUrn})`,
+      count: String(count),
+      sortBy: 'LAST_MODIFIED',
+    });
+
+    const response = await fetch(`${this.API_BASE}/ugcPosts?${params}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'X-Restli-Protocol-Version': '2.0.0',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Failed to list LinkedIn posts:', errorText);
+      return [];
+    }
+
+    const data = await response.json();
+    return data.elements || [];
+  }
+
+  /**
+   * Get posts created after a specific date
+   * Useful for polling for new content
+   */
+  async getPostsAfter(afterDate: Date, count: number = 10): Promise<LinkedInPost[]> {
+    const posts = await this.listRecentPosts(count);
+    return posts.filter(post => {
+      const createdAt = post.created?.time || post.firstPublishedAt;
+      return createdAt && new Date(createdAt) > afterDate;
+    });
+  }
+
+  /**
+   * Delete a post
+   */
+  async deletePost(postId: string): Promise<boolean> {
+    const accessToken = await this.ensureValidToken();
+
+    const response = await fetch(`${this.API_BASE}/ugcPosts/${encodeURIComponent(postId)}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'X-Restli-Protocol-Version': '2.0.0',
+      },
+    });
+
+    return response.ok;
+  }
+
+  /**
+   * Get the post URL for a given post ID
+   */
+  getPostUrl(postId: string): string {
+    return `https://www.linkedin.com/feed/update/${postId}`;
+  }
+}
+
+/**
+ * LinkedIn post structure (simplified)
+ */
+export interface LinkedInPost {
+  id: string;
+  author: string;
+  created?: {
+    time: number;
+  };
+  firstPublishedAt?: number;
+  lifecycleState: string;
+  specificContent: {
+    'com.linkedin.ugc.ShareContent': {
+      shareCommentary: {
+        text: string;
+      };
+      shareMediaCategory: string;
+      media?: Array<{
+        status: string;
+        media: string;
+        title?: { text: string };
+        description?: { text: string };
+      }>;
+    };
+  };
+  visibility: {
+    'com.linkedin.ugc.MemberNetworkVisibility': string;
+  };
 }

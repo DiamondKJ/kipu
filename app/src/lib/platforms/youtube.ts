@@ -313,4 +313,106 @@ export class YouTubeService extends BasePlatformService {
 
     return response.ok;
   }
+
+  /**
+   * List recent videos from the authenticated channel
+   */
+  async listRecentVideos(maxResults: number = 10): Promise<YouTubeVideoResource[]> {
+    const accessToken = await this.ensureValidToken();
+
+    // First, get the channel's uploads playlist ID
+    const channelParams = new URLSearchParams({
+      part: 'contentDetails',
+      mine: 'true',
+    });
+
+    const channelResponse = await fetch(`${this.API_BASE}/channels?${channelParams}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!channelResponse.ok) {
+      throw new Error('Failed to get channel info');
+    }
+
+    const channelData = await channelResponse.json();
+    const uploadsPlaylistId = channelData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+
+    if (!uploadsPlaylistId) {
+      return [];
+    }
+
+    // Get videos from uploads playlist
+    const playlistParams = new URLSearchParams({
+      part: 'snippet,contentDetails',
+      playlistId: uploadsPlaylistId,
+      maxResults: String(maxResults),
+    });
+
+    const playlistResponse = await fetch(`${this.API_BASE}/playlistItems?${playlistParams}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!playlistResponse.ok) {
+      throw new Error('Failed to get playlist items');
+    }
+
+    const playlistData = await playlistResponse.json();
+    const videoIds = playlistData.items?.map((item: { contentDetails: { videoId: string } }) =>
+      item.contentDetails.videoId
+    ).join(',');
+
+    if (!videoIds) {
+      return [];
+    }
+
+    // Get full video details
+    const videosParams = new URLSearchParams({
+      part: 'snippet,status,contentDetails',
+      id: videoIds,
+    });
+
+    const videosResponse = await fetch(`${this.API_BASE}/videos?${videosParams}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!videosResponse.ok) {
+      throw new Error('Failed to get video details');
+    }
+
+    const videosData = await videosResponse.json();
+    return videosData.items || [];
+  }
+
+  /**
+   * Get videos uploaded after a specific date/time
+   * Useful for polling for new content
+   */
+  async getVideosAfter(afterDate: Date, maxResults: number = 10): Promise<YouTubeVideoResource[]> {
+    const allVideos = await this.listRecentVideos(maxResults);
+    return allVideos.filter(video =>
+      new Date(video.snippet.publishedAt) > afterDate
+    );
+  }
+
+  /**
+   * Get download URL for a YouTube video
+   * Note: YouTube API doesn't provide direct download URLs.
+   * This returns the watch URL which can be used with external tools.
+   */
+  getVideoWatchUrl(videoId: string): string {
+    return `https://www.youtube.com/watch?v=${videoId}`;
+  }
+
+  /**
+   * Get embeddable video URL
+   */
+  getVideoEmbedUrl(videoId: string): string {
+    return `https://www.youtube.com/embed/${videoId}`;
+  }
 }
