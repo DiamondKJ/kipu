@@ -24,9 +24,9 @@ interface Connection {
   is_active: boolean;
 }
 
-const PLATFORM_INFO: Record<string, { name: string; icon: string; color: string }> = {
-  youtube: { name: 'YouTube', icon: '▶️', color: '#FF0000' },
-  linkedin: { name: 'LinkedIn', icon: '💼', color: '#0A66C2' },
+const PLATFORM_INFO: Record<string, { name: string; icon: string; logo?: string; color: string }> = {
+  youtube: { name: 'YouTube', icon: '▶️', logo: '/youtube-logo.webp', color: '#FF0000' },
+  linkedin: { name: 'LinkedIn', icon: '💼', logo: '/linkedin-logo.webp', color: '#0A66C2' },
   instagram: { name: 'Instagram', icon: '📸', color: '#E4405F' },
   twitter: { name: 'Twitter / X', icon: '𝕏', color: '#1DA1F2' },
   tiktok: { name: 'TikTok', icon: '🎵', color: '#000000' },
@@ -299,17 +299,17 @@ export default function NewWorkflowPage() {
                       }`}
                     >
                       <div
-                        className="h-12 w-12 rounded-lg flex items-center justify-center text-2xl"
+                        className="h-12 w-12 rounded-lg flex items-center justify-center overflow-hidden"
                         style={{ backgroundColor: `${info?.color}20` }}
                       >
-                        {connection.platform_avatar_url ? (
+                        {info?.logo ? (
                           <img
-                            src={connection.platform_avatar_url}
-                            alt=""
-                            className="h-10 w-10 rounded-lg object-cover"
+                            src={info.logo}
+                            alt={info.name}
+                            className="h-8 w-8 object-contain"
                           />
                         ) : (
-                          info?.icon
+                          <span className="text-2xl">{info?.icon}</span>
                         )}
                       </div>
                       <div className="flex-1">
@@ -353,17 +353,17 @@ export default function NewWorkflowPage() {
                       }`}
                     >
                       <div
-                        className="h-10 w-10 rounded-lg flex items-center justify-center text-xl"
+                        className="h-10 w-10 rounded-lg flex items-center justify-center overflow-hidden"
                         style={{ backgroundColor: `${info?.color}20` }}
                       >
-                        {connection.platform_avatar_url ? (
+                        {info?.logo ? (
                           <img
-                            src={connection.platform_avatar_url}
-                            alt=""
-                            className="h-8 w-8 rounded-lg object-cover"
+                            src={info.logo}
+                            alt={info.name}
+                            className="h-6 w-6 object-contain"
                           />
                         ) : (
-                          info?.icon
+                          <span className="text-xl">{info?.icon}</span>
                         )}
                       </div>
                       <div className="flex-1">
