@@ -8,8 +8,58 @@ export type Platform =
   | 'linkedin'
   | 'threads';
 
+// Platforms managed via n8n (no direct OAuth needed)
+export type N8nManagedPlatform = 'youtube' | 'linkedin';
+
 export type TriggerPlatform = 'instagram' | 'twitter' | 'facebook';
 export type PublishPlatform = Platform;
+
+// n8n Integration Types
+export interface N8nWebhookConfig {
+  baseUrl: string;
+  webhooks: {
+    linkedin: {
+      post: string;
+    };
+    youtube: {
+      uploadVideo: string;
+    };
+  };
+}
+
+export interface N8nPostPayload {
+  platform: N8nManagedPlatform;
+  text: string;
+  mediaUrl?: string;
+  mediaType?: 'image' | 'video';
+  // LinkedIn specific
+  linkedin?: {
+    visibility: 'PUBLIC' | 'CONNECTIONS';
+  };
+  // YouTube specific
+  youtube?: {
+    title: string;
+    description: string;
+    privacy: 'public' | 'unlisted' | 'private';
+    tags?: string[];
+    categoryId?: number;
+  };
+  // Metadata for tracking
+  metadata?: {
+    workflowRunId?: string;
+    postId?: string;
+    userId?: string;
+  };
+}
+
+export interface N8nWebhookResponse {
+  success: boolean;
+  platform: N8nManagedPlatform;
+  platformPostId?: string;
+  platformUrl?: string;
+  error?: string;
+  rawResponse?: Record<string, unknown>;
+}
 
 // Database types
 export interface Profile {

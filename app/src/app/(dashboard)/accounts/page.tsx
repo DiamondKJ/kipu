@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Plus, Check } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import type { Platform, Connection } from '@/types';
 
 const platforms: {

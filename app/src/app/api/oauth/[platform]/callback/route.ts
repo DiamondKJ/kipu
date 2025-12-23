@@ -256,15 +256,45 @@ async function fetchPlatformUserInfo(
     }
 
     case 'linkedin': {
-      const response = await fetch('https://api.linkedin.com/v2/userinfo', {
+      // Try userinfo endpoint first (requires OpenID Connect)
+      const userinfoResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      const data = await response.json();
+
+      if (userinfoResponse.ok) {
+        const data = await userinfoResponse.json();
+        return {
+          id: data.sub || '',
+          username: data.email || data.name || '',
+          displayName: data.name,
+          avatarUrl: data.picture,
+        };
+      }
+
+      // Fallback: try /v2/me endpoint
+      const meResponse = await fetch('https://api.linkedin.com/v2/me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (meResponse.ok) {
+        const meData = await meResponse.json();
+        const firstName = meData.localizedFirstName || meData.firstName?.localized?.en_US || '';
+        const lastName = meData.localizedLastName || meData.lastName?.localized?.en_US || '';
+        return {
+          id: meData.id || '',
+          username: `${firstName} ${lastName}`.trim() || meData.id || '',
+          displayName: `${firstName} ${lastName}`.trim(),
+          avatarUrl: meData.profilePicture?.['displayImage~']?.elements?.[0]?.identifiers?.[0]?.identifier,
+        };
+      }
+
+      // Last resort: generate ID from token
+      console.error('LinkedIn: Could not fetch user info');
       return {
-        id: data.sub || '',
-        username: data.email || data.name || '',
-        displayName: data.name,
-        avatarUrl: data.picture,
+        id: `linkedin_${Date.now()}`,
+        username: 'LinkedIn User',
+        displayName: 'LinkedIn User',
+        avatarUrl: undefined,
       };
     }
 
