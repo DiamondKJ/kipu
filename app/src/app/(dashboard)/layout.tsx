@@ -1,7 +1,7 @@
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
-import { Toaster } from '@/components/ui/sonner';
 import { FilamentBackground } from '@/components/ui/filament-background';
+import { Toaster } from '@/components/ui/sonner';
 
 export default function DashboardLayout({
   children,

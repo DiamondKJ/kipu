@@ -1,8 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase/server';
-import { YouTubeService, LinkedInService } from '@/lib/platforms';
+import { type NextRequest, NextResponse } from 'next/server';
+
+import { LinkedInService, YouTubeService } from '@/lib/platforms';
 import { crossPostVideo } from '@/lib/platforms/crosspost';
-import type { Connection, Workflow, WorkflowStep, PublishConfig } from '@/types';
+import { createServiceClient } from '@/lib/supabase/server';
+
+import type { Connection, PublishConfig, Workflow, WorkflowStep } from '@/types';
 
 // Verify cron secret to prevent unauthorized calls
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -20,7 +22,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createServiceClient();
+    const supabase = createServiceClient();
     const results: PollResult[] = [];
 
     // Get all active connections that can be polled (YouTube and LinkedIn)
@@ -63,7 +65,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-interface PollResult {
+type PollResult = {
   connectionId: string;
   platform: string;
   username: string;
@@ -171,7 +173,7 @@ async function pollConnection(
   return result;
 }
 
-interface DetectedContent {
+type DetectedContent = {
   externalId: string;
   type: 'video' | 'image' | 'text';
   title: string;
@@ -254,7 +256,7 @@ async function triggerWorkflows(
 
   let triggeredCount = 0;
 
-  for (const workflow of workflows as (Workflow & { workflow_steps: WorkflowStep[] })[]) {
+  for (const workflow of workflows as Array<Workflow & { workflow_steps: WorkflowStep[] }>) {
     try {
       // Create workflow run
       const { data: workflowRun } = await supabase
@@ -275,7 +277,7 @@ async function triggerWorkflows(
         .select()
         .single();
 
-      if (!workflowRun) continue;
+      if (!workflowRun) {continue;}
 
       // Log workflow triggered activity
       await supabase.from('activity_log').insert({
@@ -307,7 +309,7 @@ async function triggerWorkflows(
             .eq('id', step.target_connection_id)
             .single();
 
-          if (!targetConnection) continue;
+          if (!targetConnection) {continue;}
 
           // Log cross-post started
           await supabase.from('activity_log').insert({
@@ -395,7 +397,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createServiceClient();
+    const supabase = createServiceClient();
 
     const { data: connection, error } = await supabase
       .from('connections')

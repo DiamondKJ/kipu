@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+
+import { LinkedInService, YouTubeService } from '@/lib/platforms';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
-import { YouTubeService, LinkedInService, getConnection } from '@/lib/platforms';
+
 import type { Platform } from '@/types';
 
-interface RouteParams {
+type RouteParams = {
   params: Promise<{ connectionId: string }>;
 }
 
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const limit = parseInt(searchParams.get('limit') || '10', 10);
 
     // Get connection and verify access
-    const serviceClient = await createServiceClient();
+    const serviceClient = createServiceClient();
     const { data: connection, error: connectionError } = await serviceClient
       .from('connections')
       .select('*, teams!inner(owner_id)')
@@ -100,7 +102,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         return {
           id: post.id,
           platform: 'linkedin' as const,
-          type: mediaType as 'video' | 'image' | 'text',
+          type: mediaType,
           title: shareContent.shareCommentary.text.slice(0, 100),
           description: shareContent.shareCommentary.text,
           publishedAt: post.created?.time
@@ -141,7 +143,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-interface ContentItem {
+type ContentItem = {
   id: string;
   platform: 'youtube' | 'linkedin';
   type: 'video' | 'image' | 'text';

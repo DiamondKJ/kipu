@@ -1,8 +1,9 @@
-import { createServiceClient } from '@/lib/supabase/server';
 import { oauthConfigs } from '@/lib/oauth/config';
+import { createServiceClient } from '@/lib/supabase/server';
+
 import type { Connection, Platform } from '@/types';
 
-export interface PostResult {
+export type PostResult = {
   success: boolean;
   platformPostId?: string;
   platformUrl?: string;
@@ -10,7 +11,7 @@ export interface PostResult {
   rawResponse?: Record<string, unknown>;
 }
 
-export interface PostContent {
+export type PostContent = {
   text: string;
   mediaUrl?: string;
   mediaType?: 'image' | 'video';
@@ -78,7 +79,7 @@ export abstract class BasePlatformService {
     const expiresIn = tokenData.expires_in;
 
     // Update the connection in the database
-    const supabase = await createServiceClient();
+    const supabase = createServiceClient();
     const expiresAt = expiresIn
       ? new Date(Date.now() + expiresIn * 1000).toISOString()
       : null;
@@ -120,7 +121,7 @@ export abstract class BasePlatformService {
  * Fetch a connection from the database by ID
  */
 export async function getConnection(connectionId: string): Promise<Connection | null> {
-  const supabase = await createServiceClient();
+  const supabase = createServiceClient();
   const { data, error } = await supabase
     .from('connections')
     .select('*')

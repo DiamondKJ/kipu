@@ -1,13 +1,15 @@
-import { notFound } from 'next/navigation';
+import { ArrowLeft, ArrowRight, Play, Plus, Settings, Trash2, Zap } from 'lucide-react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Plus, Zap, ArrowRight, Trash2, Settings, Play } from 'lucide-react';
+import { notFound } from 'next/navigation';
 
-interface PageProps {
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { createClient } from '@/lib/supabase/server';
+
+
+type PageProps = {
   params: Promise<{ id: string }>;
 }
 
@@ -63,9 +65,7 @@ export default async function WorkflowEditorPage({ params }: PageProps) {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-white">{workflow.name}</h1>
-            {workflow.description && (
-              <p className="text-zinc-400">{workflow.description}</p>
-            )}
+            {workflow.description ? <p className="text-zinc-400">{workflow.description}</p> : null}
           </div>
         </div>
 
@@ -177,20 +177,16 @@ export default async function WorkflowEditorPage({ params }: PageProps) {
                     </div>
                     <div>
                       <p className="font-medium text-white">
-                        {step.step_type === 'publish' && 'Publish to'}
-                        {step.step_type === 'ai_rewrite' && 'AI Rewrite'}
-                        {step.step_type === 'delay' && 'Wait'}
-                        {step.target_connection && (
-                          <span className="text-teal-400 ml-1">
+                        {step.step_type === 'publish' ? 'Publish to' : null}
+                        {step.step_type === 'ai_rewrite' ? 'AI Rewrite' : null}
+                        {step.step_type === 'delay' ? 'Wait' : null}
+                        {step.target_connection ? <span className="text-teal-400 ml-1">
                             {step.target_connection.platform}
-                          </span>
-                        )}
+                          </span> : null}
                       </p>
-                      {step.target_connection && (
-                        <p className="text-sm text-zinc-500">
+                      {step.target_connection ? <p className="text-sm text-zinc-500">
                           @{step.target_connection.platform_username}
-                        </p>
-                      )}
+                        </p> : null}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -202,11 +198,9 @@ export default async function WorkflowEditorPage({ params }: PageProps) {
                     </Button>
                   </div>
                 </div>
-                {index < sortedSteps.length - 1 && (
-                  <div className="flex justify-center py-2">
+                {index < sortedSteps.length - 1 ? <div className="flex justify-center py-2">
                     <div className="h-4 w-0.5 bg-zinc-700" />
-                  </div>
-                )}
+                  </div> : null}
               </div>
             ))}
 

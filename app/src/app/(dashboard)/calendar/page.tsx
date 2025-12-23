@@ -1,8 +1,10 @@
-import { createClient } from '@/lib/supabase/server';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { createClient } from '@/lib/supabase/server';
+
 
 export default async function CalendarPage() {
   const supabase = await createClient();
@@ -29,7 +31,7 @@ export default async function CalendarPage() {
   const daysInMonth = endOfMonth.getDate();
   const firstDayOfWeek = startOfMonth.getDay();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-  const paddingDays = Array.from({ length: firstDayOfWeek }, (_, i) => null);
+  const paddingDays = Array.from({ length: firstDayOfWeek }, () => null);
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -38,12 +40,10 @@ export default async function CalendarPage() {
 
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  const getPostsForDay = (day: number) => {
-    return (scheduledPosts || []).filter((post) => {
+  const getPostsForDay = (day: number) => (scheduledPosts || []).filter((post) => {
       const postDate = new Date(post.scheduled_for);
       return postDate.getDate() === day;
     });
-  };
 
   const getPlatformColor = (platform: string) => {
     const colors: Record<string, string> = {
@@ -136,14 +136,12 @@ export default async function CalendarPage() {
                     >
                       {day}
                     </span>
-                    {posts.length > 0 && (
-                      <Badge
+                    {posts.length > 0 ? <Badge
                         variant="outline"
                         className="text-xs border-zinc-700 text-zinc-400"
                       >
                         {posts.length}
-                      </Badge>
-                    )}
+                      </Badge> : null}
                   </div>
                   <div className="space-y-1">
                     {posts.slice(0, 2).map((post) => (
@@ -156,11 +154,9 @@ export default async function CalendarPage() {
                         {post.connection?.platform}
                       </div>
                     ))}
-                    {posts.length > 2 && (
-                      <div className="text-xs text-zinc-500">
+                    {posts.length > 2 ? <div className="text-xs text-zinc-500">
                         +{posts.length - 2} more
-                      </div>
-                    )}
+                      </div> : null}
                   </div>
                 </div>
               );

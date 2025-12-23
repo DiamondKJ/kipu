@@ -1,6 +1,9 @@
 'use client';
 
+import { Bell, Plus, Search } from 'lucide-react';
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,8 +11,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
-import { Bell, Search, Plus } from 'lucide-react';
 import { useUser } from '@/hooks/use-user';
 
 export function Topbar() {

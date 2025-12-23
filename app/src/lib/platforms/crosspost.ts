@@ -1,10 +1,10 @@
-import { createServiceClient } from '@/lib/supabase/server';
-import { getConnection, downloadMedia, PostResult } from './base';
+import { getConnection, type PostResult } from './base';
 import { LinkedInService } from './linkedin';
 import { YouTubeService } from './youtube';
+
 import type { Connection } from '@/types';
 
-export interface CrossPostRequest {
+export type CrossPostRequest = {
   sourceConnectionId: string;
   targetConnectionId: string;
   sourceVideoUrl: string;
@@ -23,7 +23,7 @@ export interface CrossPostRequest {
   };
 }
 
-export interface CrossPostResult {
+export type CrossPostResult = {
   success: boolean;
   sourceplatform: string;
   targetPlatform: string;
@@ -47,9 +47,9 @@ export function youtubeToLinkedInCaption(
     // Truncate description to keep LinkedIn post reasonable
     const maxDescLength = 2500 - title.length - 100; // Leave room for URL
     const truncatedDesc = description.length > maxDescLength
-      ? description.slice(0, maxDescLength) + '...'
+      ? `${description.slice(0, maxDescLength)  }...`
       : description;
-    caption += '\n\n' + truncatedDesc;
+    caption += `\n\n${  truncatedDesc}`;
   }
 
   // Add YouTube link
@@ -71,7 +71,7 @@ export function linkedInToYouTubeMetadata(
   // First line or first 100 chars becomes the title
   let title = lines[0] || 'Uploaded from LinkedIn';
   if (title.length > 100) {
-    title = title.slice(0, 97) + '...';
+    title = `${title.slice(0, 97)  }...`;
   }
 
   // Full caption becomes description
@@ -115,7 +115,7 @@ export async function crossPostVideo(request: CrossPostRequest): Promise<CrossPo
       return {
         success: false,
         sourceplatform: sourcePlatform,
-        targetPlatform: targetPlatform,
+        targetPlatform,
         error: `Source platform ${sourcePlatform} not supported for cross-posting`,
       };
     }
@@ -124,7 +124,7 @@ export async function crossPostVideo(request: CrossPostRequest): Promise<CrossPo
       return {
         success: false,
         sourceplatform: sourcePlatform,
-        targetPlatform: targetPlatform,
+        targetPlatform,
         error: `Target platform ${targetPlatform} not supported for cross-posting`,
       };
     }
@@ -150,7 +150,7 @@ export async function crossPostVideo(request: CrossPostRequest): Promise<CrossPo
       return {
         success: false,
         sourceplatform: sourcePlatform,
-        targetPlatform: targetPlatform,
+        targetPlatform,
         error: 'Invalid target platform',
       };
     }
@@ -158,7 +158,7 @@ export async function crossPostVideo(request: CrossPostRequest): Promise<CrossPo
     return {
       success: result.success,
       sourceplatform: sourcePlatform,
-      targetPlatform: targetPlatform,
+      targetPlatform,
       platformPostId: result.platformPostId,
       platformUrl: result.platformUrl,
       error: result.error,

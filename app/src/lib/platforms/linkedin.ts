@@ -1,11 +1,11 @@
 import {
   BasePlatformService,
-  PostContent,
-  PostResult,
   downloadMedia,
+  type PostContent,
+  type PostResult,
 } from './base';
 
-interface LinkedInUploadResponse {
+type LinkedInUploadResponse = {
   value: {
     uploadMechanism: {
       'com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest': {
@@ -17,7 +17,7 @@ interface LinkedInUploadResponse {
   };
 }
 
-interface LinkedInPostConfig {
+type LinkedInPostConfig = {
   visibility?: 'PUBLIC' | 'CONNECTIONS';
 }
 
@@ -296,7 +296,7 @@ export class LinkedInService extends BasePlatformService {
    * List recent posts from the authenticated user
    * Note: LinkedIn API has limitations on listing user's own posts
    */
-  async listRecentPosts(count: number = 10): Promise<LinkedInPost[]> {
+  async listRecentPosts(count = 10): Promise<LinkedInPost[]> {
     const accessToken = await this.ensureValidToken();
     const authorUrn = this.getMemberUrn();
 
@@ -328,7 +328,7 @@ export class LinkedInService extends BasePlatformService {
    * Get posts created after a specific date
    * Useful for polling for new content
    */
-  async getPostsAfter(afterDate: Date, count: number = 10): Promise<LinkedInPost[]> {
+  async getPostsAfter(afterDate: Date, count = 10): Promise<LinkedInPost[]> {
     const posts = await this.listRecentPosts(count);
     return posts.filter(post => {
       const createdAt = post.created?.time || post.firstPublishedAt;
@@ -364,7 +364,7 @@ export class LinkedInService extends BasePlatformService {
 /**
  * LinkedIn post structure (simplified)
  */
-export interface LinkedInPost {
+export type LinkedInPost = {
   id: string;
   author: string;
   created?: {

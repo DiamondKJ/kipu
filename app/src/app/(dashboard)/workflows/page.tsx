@@ -1,10 +1,9 @@
+import { MoreHorizontal, Pause, Play, Plus, Trash2, Zap } from 'lucide-react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Plus, Zap, MoreHorizontal, Play, Pause, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +11,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Switch } from '@/components/ui/switch';
+import { createClient } from '@/lib/supabase/server';
 
 export default async function WorkflowsPage() {
   const supabase = await createClient();
@@ -106,9 +107,7 @@ export default async function WorkflowsPage() {
                             {step.target_connection?.platform}
                           </Badge>
                         ))}
-                        {(!workflow.workflow_steps || workflow.workflow_steps.length === 0) && (
-                          <span className="text-xs text-zinc-500">No actions</span>
-                        )}
+                        {(!workflow.workflow_steps || workflow.workflow_steps.length === 0) ? <span className="text-xs text-zinc-500">No actions</span> : null}
                       </div>
                     </div>
                   </div>

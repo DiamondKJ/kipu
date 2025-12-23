@@ -1,20 +1,21 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { cn } from '@/lib/utils';
 import {
-  LayoutDashboard,
-  Users,
-  Workflow,
   Calendar,
   FolderOpen,
-  Settings,
+  LayoutDashboard,
   LogOut,
+  Settings,
+  Users,
+  Workflow,
 } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname , useRouter } from 'next/navigation';
+
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
+
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -75,12 +76,10 @@ export function Sidebar() {
               style={{ animationDelay: `${index * 50}ms` }}
             >
               {/* Active indicator node */}
-              {isActive && (
-                <div className="absolute -left-3 top-1/2 -translate-y-1/2 flex items-center">
+              {isActive ? <div className="absolute -left-3 top-1/2 -translate-y-1/2 flex items-center">
                   <div className="w-1.5 h-1.5 rounded-full bg-solar-gold" />
                   <div className="w-3 h-px bg-gradient-to-r from-solar-gold to-transparent" />
-                </div>
-              )}
+                </div> : null}
 
               <item.icon className={cn(
                 "h-5 w-5 transition-colors",

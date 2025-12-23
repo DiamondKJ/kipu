@@ -1,6 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { ArrowRight, CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -9,10 +12,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -20,10 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Textarea } from '@/components/ui/textarea';
 
-interface Connection {
+type Connection = {
   id: string;
   platform: string;
   platform_username: string;
@@ -31,7 +31,7 @@ interface Connection {
   platform_avatar_url: string | null;
 }
 
-interface CrossPostDialogProps {
+type CrossPostDialogProps = {
   connections: Connection[];
   trigger?: React.ReactNode;
   onSuccess?: () => void;
@@ -69,7 +69,7 @@ export function CrossPostDialog({
   const linkedinConnections = connections.filter((c) => c.platform === 'linkedin');
 
   // Get selected connections
-  const sourceConnection = connections.find((c) => c.id === sourceConnectionId);
+  const _sourceConnection = connections.find((c) => c.id === sourceConnectionId);
   const targetConnection = connections.find((c) => c.id === targetConnectionId);
 
   // Reset form when dialog closes
@@ -164,16 +164,14 @@ export function CrossPostDialog({
               <>
                 <CheckCircle2 className="h-12 w-12 mx-auto text-green-400" />
                 <p className="text-lg font-medium text-[#E6E8EF]">{result.message}</p>
-                {result.url && (
-                  <a
+                {result.url ? <a
                     href={result.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[#4FD1C5] hover:underline"
                   >
                     View post
-                  </a>
-                )}
+                  </a> : null}
                 <Button
                   onClick={() => setOpen(false)}
                   className="mt-4 bg-[#E6C27A] text-[#05060A] hover:bg-[#E6C27A]/90"
@@ -278,8 +276,7 @@ export function CrossPostDialog({
             </div>
 
             {/* YouTube-specific options */}
-            {targetConnection?.platform === 'youtube' && (
-              <div className="space-y-4 p-4 rounded-lg bg-[#05060A]/50 border border-[rgba(230,194,122,0.1)]">
+            {targetConnection?.platform === 'youtube' ? <div className="space-y-4 p-4 rounded-lg bg-[#05060A]/50 border border-[rgba(230,194,122,0.1)]">
                 <h4 className="text-sm font-medium text-[#E6C27A]">YouTube Options</h4>
                 <div className="space-y-2">
                   <Label className="text-[#9AA3B2]">Title</Label>
@@ -303,12 +300,10 @@ export function CrossPostDialog({
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-            )}
+              </div> : null}
 
             {/* LinkedIn-specific options */}
-            {targetConnection?.platform === 'linkedin' && (
-              <div className="space-y-4 p-4 rounded-lg bg-[#05060A]/50 border border-[rgba(230,194,122,0.1)]">
+            {targetConnection?.platform === 'linkedin' ? <div className="space-y-4 p-4 rounded-lg bg-[#05060A]/50 border border-[rgba(230,194,122,0.1)]">
                 <h4 className="text-sm font-medium text-[#0A66C2]">LinkedIn Options</h4>
                 <div className="space-y-2">
                   <Label className="text-[#9AA3B2]">Visibility</Label>
@@ -322,8 +317,7 @@ export function CrossPostDialog({
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-            )}
+              </div> : null}
 
             {/* Submit */}
             <Button

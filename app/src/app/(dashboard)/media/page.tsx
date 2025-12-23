@@ -1,37 +1,37 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import {
+  Copy,
+  Download,
+  FileText,
+  Filter,
+  FolderOpen,
+  Grid,
+  Image as ImageIcon,
+  List,
+  MoreHorizontal,
+  Search,
+  Trash2,
+  Upload,
+  Video,
+} from 'lucide-react';
+import { useCallback, useState } from 'react';
+
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Upload,
-  Search,
-  Grid,
-  List,
-  Filter,
-  MoreHorizontal,
-  Image as ImageIcon,
-  Video,
-  FileText,
-  Trash2,
-  Download,
-  Copy,
-  FolderOpen,
-} from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 type ViewMode = 'grid' | 'list';
 type MediaType = 'all' | 'image' | 'video' | 'document';
 
-interface MediaFile {
+type MediaFile = {
   id: string;
   name: string;
   type: string;
@@ -47,9 +47,8 @@ export default function MediaLibraryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const [files, setFiles] = useState<MediaFile[]>([]);
-
-  const supabase = createClient();
+  // eslint-disable-next-line react/hook-use-state -- setter intentionally unused
+  const [files] = useState<MediaFile[]>([]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -64,9 +63,8 @@ export default function MediaLibraryPage() {
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    // Handle file upload
-    console.log('Dropped files:', droppedFiles);
+    const _droppedFiles = Array.from(e.dataTransfer.files);
+    // TODO: Handle file upload
   }, []);
 
   const toggleFileSelection = (id: string) => {
@@ -76,17 +74,17 @@ export default function MediaLibraryPage() {
   };
 
   const getFileIcon = (type: string) => {
-    if (type.startsWith('image/')) return <ImageIcon className="h-6 w-6" />;
-    if (type.startsWith('video/')) return <Video className="h-6 w-6" />;
+    if (type.startsWith('image/')) {return <ImageIcon className="h-6 w-6" />;}
+    if (type.startsWith('video/')) {return <Video className="h-6 w-6" />;}
     return <FileText className="h-6 w-6" />;
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) {return '0 Bytes';}
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))  } ${  sizes[i]}`;
   };
 
   return (
@@ -143,11 +141,9 @@ export default function MediaLibraryPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {selectedFiles.length > 0 && (
-            <Badge variant="outline" className="border-zinc-700 text-zinc-400">
+          {selectedFiles.length > 0 ? <Badge variant="outline" className="border-zinc-700 text-zinc-400">
               {selectedFiles.length} selected
-            </Badge>
-          )}
+            </Badge> : null}
           <div className="flex items-center border border-zinc-800 rounded-lg overflow-hidden">
             <Button
               variant="ghost"
@@ -174,7 +170,10 @@ export default function MediaLibraryPage() {
       </div>
 
       {/* Drop Zone / Content */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- drag and drop zone */}
       <div
+        role="region"
+        aria-label="File drop zone"
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -184,97 +183,100 @@ export default function MediaLibraryPage() {
             : 'border-zinc-800 bg-zinc-900/50'
         }`}
       >
-        {files.length > 0 ? (
-          viewMode === 'grid' ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-4">
-              {files.map((file) => (
-                <Card
-                  key={file.id}
-                  className={`bg-zinc-800 border-zinc-700 cursor-pointer transition-all ${
-                    selectedFiles.includes(file.id)
-                      ? 'ring-2 ring-teal-500'
-                      : 'hover:border-zinc-600'
-                  }`}
-                  onClick={() => toggleFileSelection(file.id)}
-                >
-                  <CardContent className="p-2">
-                    <div className="aspect-square rounded bg-zinc-900 flex items-center justify-center mb-2 overflow-hidden">
-                      {file.thumbnail_url ? (
-                        <img
-                          src={file.thumbnail_url}
-                          alt={file.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="text-zinc-500">
-                          {getFileIcon(file.type)}
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-xs text-white truncate">{file.name}</p>
-                    <p className="text-xs text-zinc-500">
-                      {formatFileSize(file.size)}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="divide-y divide-zinc-800">
-              {files.map((file) => (
-                <div
-                  key={file.id}
-                  className={`flex items-center justify-between p-4 cursor-pointer transition-colors ${
-                    selectedFiles.includes(file.id)
-                      ? 'bg-teal-500/10'
-                      : 'hover:bg-zinc-800/50'
-                  }`}
-                  onClick={() => toggleFileSelection(file.id)}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded bg-zinc-800 flex items-center justify-center text-zinc-500">
-                      {getFileIcon(file.type)}
-                    </div>
-                    <div>
-                      <p className="text-sm text-white">{file.name}</p>
-                      <p className="text-xs text-zinc-500">
-                        {formatFileSize(file.size)} •{' '}
-                        {new Date(file.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
+        {files.length > 0 && viewMode === 'grid' ? <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-4">
+            {files.map((file) => (
+              <Card
+                key={file.id}
+                className={`bg-zinc-800 border-zinc-700 cursor-pointer transition-all ${
+                  selectedFiles.includes(file.id)
+                    ? 'ring-2 ring-teal-500'
+                    : 'hover:border-zinc-600'
+                }`}
+                onClick={() => toggleFileSelection(file.id)}
+              >
+                <CardContent className="p-2">
+                  <div className="aspect-square rounded bg-zinc-900 flex items-center justify-center mb-2 overflow-hidden">
+                    {file.thumbnail_url ? (
+                      <img
+                        src={file.thumbnail_url}
+                        alt={file.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="text-zinc-500">
+                        {getFileIcon(file.type)}
+                      </div>
+                    )}
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
-                        <Download className="h-4 w-4 mr-2" />
-                        Download
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy URL
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-400">
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <p className="text-xs text-white truncate">{file.name}</p>
+                  <p className="text-xs text-zinc-500">
+                    {formatFileSize(file.size)}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div> : null}
+        {files.length > 0 && viewMode === 'list' ? <div className="divide-y divide-zinc-800">
+            {files.map((file) => (
+              <div
+                key={file.id}
+                role="button"
+                tabIndex={0}
+                className={`flex items-center justify-between p-4 cursor-pointer transition-colors ${
+                  selectedFiles.includes(file.id)
+                    ? 'bg-teal-500/10'
+                    : 'hover:bg-zinc-800/50'
+                }`}
+                onClick={() => toggleFileSelection(file.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleFileSelection(file.id);
+                  }
+                }}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded bg-zinc-800 flex items-center justify-center text-zinc-500">
+                    {getFileIcon(file.type)}
+                  </div>
+                  <div>
+                    <p className="text-sm text-white">{file.name}</p>
+                    <p className="text-xs text-zinc-500">
+                      {formatFileSize(file.size)} •{' '}
+                      {new Date(file.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center p-8">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy URL
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-red-400">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            ))}
+          </div> : null}
+        {files.length === 0 ? <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center p-8">
             <div className="h-16 w-16 rounded-full bg-zinc-800 flex items-center justify-center mb-4">
               <FolderOpen className="h-8 w-8 text-zinc-500" />
             </div>
@@ -288,8 +290,7 @@ export default function MediaLibraryPage() {
               <Upload className="h-4 w-4 mr-2" />
               Upload Files
             </Button>
-          </div>
-        )}
+          </div> : null}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
-import { Card, CardContent } from '@/components/ui/card';
 import { ActivityFeed } from '@/components/activity/activity-feed';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function ActivityPage() {
   return (
@@ -17,7 +17,7 @@ export default function ActivityPage() {
       {/* Activity Feed */}
       <Card className="bg-[#0B1020]/60 border-[rgba(230,194,122,0.1)] backdrop-blur-sm">
         <CardContent className="p-6">
-          <ActivityFeed limit={50} showRefresh={true} />
+          <ActivityFeed limit={50} showRefresh />
         </CardContent>
       </Card>
     </div>

@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createServiceClient } from '@/lib/supabase/server';
-import { crossPostVideo } from '@/lib/platforms';
-import type { Workflow, WorkflowStep, PublishConfig, Connection } from '@/types';
+import { type NextRequest, NextResponse } from 'next/server';
 
-interface ExecuteWorkflowRequest {
+import { crossPostVideo } from '@/lib/platforms';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
+
+import type { PublishConfig, WorkflowStep } from '@/types';
+
+type ExecuteWorkflowRequest = {
   workflowId: string;
   triggerData: {
     videoUrl: string;
@@ -13,7 +15,7 @@ interface ExecuteWorkflowRequest {
   };
 }
 
-interface StepResult {
+type StepResult = {
   stepId: string;
   success: boolean;
   platformPostId?: string;
@@ -54,7 +56,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const serviceClient = await createServiceClient();
+    const serviceClient = createServiceClient();
 
     // Get workflow with steps
     const { data: workflow, error: workflowError } = await serviceClient
@@ -129,7 +131,7 @@ export async function POST(request: NextRequest) {
 
     // Execute each step
     const results: StepResult[] = [];
-    let currentCaption = body.triggerData.caption;
+    const currentCaption = body.triggerData.caption;
 
     for (const step of steps as WorkflowStep[]) {
       const stepResult = await executeStep(
@@ -294,14 +296,14 @@ async function executeStep(
         platformUrl: result.platformUrl,
         error: result.error,
       };
-    } else if (step.step_type === 'delay') {
+    } if (step.step_type === 'delay') {
       // For now, delays are not implemented in synchronous execution
       // In production, this would schedule the next step
       return {
         stepId: step.id,
         success: true,
       };
-    } else if (step.step_type === 'ai_rewrite') {
+    } if (step.step_type === 'ai_rewrite') {
       // AI rewrite would transform the caption
       // For now, pass through unchanged
       return {

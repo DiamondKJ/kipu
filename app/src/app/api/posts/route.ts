@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { createServiceClient } from '@/lib/supabase/server';
+import { type NextRequest, NextResponse } from 'next/server';
+
 import { postToConnection, supportsPosting } from '@/lib/platforms';
+import { createClient , createServiceClient } from '@/lib/supabase/server';
+
 import type { Platform } from '@/types';
 
-interface PostRequestBody {
+type PostRequestBody = {
   connectionId: string;
   text: string;
   mediaUrl?: string;
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify user owns the connection
-    const serviceClient = await createServiceClient();
+    const serviceClient = createServiceClient();
     const { data: connection, error: connectionError } = await serviceClient
       .from('connections')
       .select('*, teams!inner(owner_id)')

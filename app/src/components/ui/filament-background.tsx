@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 
-interface FilamentNode {
+type FilamentNode = {
   id: number;
   x: number;
   y: number;
@@ -10,7 +10,7 @@ interface FilamentNode {
   opacity: number;
 }
 
-interface FilamentLine {
+type FilamentLine = {
   id: number;
   x1: number;
   y1: number;
@@ -22,10 +22,19 @@ interface FilamentLine {
   controlY?: number;
 }
 
+type AmbientDot = {
+  id: number;
+  x: number;
+  y: number;
+  r: number;
+  opacity: number;
+}
+
 export function FilamentBackground() {
-  const { nodes, lines } = useMemo(() => {
+  const { nodes, lines, ambientDots } = useMemo(() => {
     const generatedNodes: FilamentNode[] = [];
     const generatedLines: FilamentLine[] = [];
+    const generatedDots: AmbientDot[] = [];
 
     // Generate sparse nodes across the viewport
     const nodeCount = 12;
@@ -60,7 +69,18 @@ export function FilamentBackground() {
       });
     }
 
-    return { nodes: generatedNodes, lines: generatedLines };
+    // Generate ambient dots for depth
+    for (let i = 0; i < 30; i++) {
+      generatedDots.push({
+        id: i,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        r: 0.5 + Math.random() * 1,
+        opacity: 0.05 + Math.random() * 0.1,
+      });
+    }
+
+    return { nodes: generatedNodes, lines: generatedLines, ambientDots: generatedDots };
   }, []);
 
   return (
@@ -118,14 +138,14 @@ export function FilamentBackground() {
         ))}
 
         {/* Additional ambient dots for depth */}
-        {Array.from({ length: 30 }).map((_, i) => (
+        {ambientDots.map((dot) => (
           <circle
-            key={`dot-${i}`}
-            cx={`${Math.random() * 100}%`}
-            cy={`${Math.random() * 100}%`}
-            r={0.5 + Math.random() * 1}
+            key={`dot-${dot.id}`}
+            cx={`${dot.x}%`}
+            cy={`${dot.y}%`}
+            r={dot.r}
             fill="#E6C27A"
-            fillOpacity={0.05 + Math.random() * 0.1}
+            fillOpacity={dot.opacity}
           />
         ))}
       </svg>

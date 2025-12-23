@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@/lib/supabase/server';
+import { NextResponse } from 'next/server';
+
 import { getOAuthConfig, getRedirectUri } from '@/lib/oauth/config';
 import { exchangeCodeForToken } from '@/lib/oauth/utils';
+import { createClient } from '@/lib/supabase/server';
+
 import type { Platform } from '@/types';
 
 const VALID_PLATFORMS: Platform[] = [
@@ -15,7 +17,7 @@ const VALID_PLATFORMS: Platform[] = [
   'threads',
 ];
 
-interface RouteParams {
+type RouteParams = {
   params: Promise<{ platform: string }>;
 }
 
@@ -186,7 +188,7 @@ export async function GET(request: Request, { params }: RouteParams) {
   }
 }
 
-interface PlatformUserInfo {
+type PlatformUserInfo = {
   id: string;
   username: string;
   displayName?: string;

@@ -15,7 +15,7 @@ export type TriggerPlatform = 'instagram' | 'twitter' | 'facebook';
 export type PublishPlatform = Platform;
 
 // n8n Integration Types
-export interface N8nWebhookConfig {
+export type N8nWebhookConfig = {
   baseUrl: string;
   webhooks: {
     linkedin: {
@@ -27,7 +27,7 @@ export interface N8nWebhookConfig {
   };
 }
 
-export interface N8nPostPayload {
+export type N8nPostPayload = {
   platform: N8nManagedPlatform;
   text: string;
   mediaUrl?: string;
@@ -52,7 +52,7 @@ export interface N8nPostPayload {
   };
 }
 
-export interface N8nWebhookResponse {
+export type N8nWebhookResponse = {
   success: boolean;
   platform: N8nManagedPlatform;
   platformPostId?: string;
@@ -62,7 +62,7 @@ export interface N8nWebhookResponse {
 }
 
 // Database types
-export interface Profile {
+export type Profile = {
   id: string;
   name: string;
   email: string;
@@ -70,21 +70,21 @@ export interface Profile {
   created_at: string;
 }
 
-export interface Team {
+export type Team = {
   id: string;
   name: string;
   owner_id: string;
   created_at: string;
 }
 
-export interface TeamMember {
+export type TeamMember = {
   team_id: string;
   user_id: string;
   role: 'owner' | 'admin' | 'member';
   created_at: string;
 }
 
-export interface Connection {
+export type Connection = {
   id: string;
   team_id: string;
   platform: Platform;
@@ -103,7 +103,7 @@ export interface Connection {
   updated_at: string;
 }
 
-export interface Workflow {
+export type Workflow = {
   id: string;
   team_id: string;
   name: string;
@@ -115,7 +115,7 @@ export interface Workflow {
   updated_at: string;
 }
 
-export interface WorkflowStep {
+export type WorkflowStep = {
   id: string;
   workflow_id: string;
   order_index: number;
@@ -125,7 +125,7 @@ export interface WorkflowStep {
   created_at: string;
 }
 
-export interface PublishConfig {
+export type PublishConfig = {
   type: 'publish';
   platform: Platform;
   use_original_caption: boolean;
@@ -156,7 +156,7 @@ export interface PublishConfig {
   };
 }
 
-export interface AIRewriteConfig {
+export type AIRewriteConfig = {
   type: 'ai_rewrite';
   target_platform: Platform;
   tone: 'professional' | 'casual' | 'funny' | 'educational';
@@ -166,12 +166,12 @@ export interface AIRewriteConfig {
   custom_instructions?: string;
 }
 
-export interface DelayConfig {
+export type DelayConfig = {
   type: 'delay';
   duration_minutes: number;
 }
 
-export interface WorkflowRun {
+export type WorkflowRun = {
   id: string;
   workflow_id: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
@@ -181,7 +181,7 @@ export interface WorkflowRun {
   error: string | null;
 }
 
-export interface WorkflowStepRun {
+export type WorkflowStepRun = {
   id: string;
   run_id: string;
   step_id: string;
@@ -193,7 +193,7 @@ export interface WorkflowStepRun {
   completed_at: string | null;
 }
 
-export interface Post {
+export type Post = {
   id: string;
   team_id: string;
   workflow_run_id: string | null;
@@ -211,7 +211,7 @@ export interface Post {
   created_at: string;
 }
 
-export interface Media {
+export type Media = {
   id: string;
   team_id: string;
   folder_id: string | null;
@@ -223,7 +223,7 @@ export interface Media {
   created_at: string;
 }
 
-export interface MediaFolder {
+export type MediaFolder = {
   id: string;
   team_id: string;
   parent_id: string | null;
@@ -232,7 +232,7 @@ export interface MediaFolder {
 }
 
 // Platform-specific profile types
-export interface InstagramProfile {
+export type InstagramProfile = {
   id: string;
   username: string;
   name: string;
@@ -243,7 +243,7 @@ export interface InstagramProfile {
   account_type: 'BUSINESS' | 'CREATOR';
 }
 
-export interface YouTubeChannel {
+export type YouTubeChannel = {
   id: string;
   title: string;
   description: string;
@@ -254,7 +254,7 @@ export interface YouTubeChannel {
   view_count: number;
 }
 
-export interface TikTokProfile {
+export type TikTokProfile = {
   open_id: string;
   union_id: string;
   username: string;
@@ -266,7 +266,7 @@ export interface TikTokProfile {
   video_count: number;
 }
 
-export interface TwitterProfile {
+export type TwitterProfile = {
   id: string;
   username: string;
   name: string;
@@ -276,14 +276,14 @@ export interface TwitterProfile {
   tweet_count: number;
 }
 
-export interface LinkedInProfile {
+export type LinkedInProfile = {
   id: string;
   name: string;
   headline: string;
   profile_picture_url: string;
 }
 
-export interface FacebookPage {
+export type FacebookPage = {
   id: string;
   name: string;
   picture_url: string;

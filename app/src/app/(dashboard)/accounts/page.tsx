@@ -1,12 +1,15 @@
-import { createClient } from '@/lib/supabase/server';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Plus } from 'lucide-react';
-import type { Platform, Connection } from '@/types';
 
-const platforms: {
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { createClient } from '@/lib/supabase/server';
+
+
+import type { Connection, Platform } from '@/types';
+
+const platforms: Array<{
   id: Platform;
   name: string;
   description: string;
@@ -14,7 +17,7 @@ const platforms: {
   emoji: string;
   accentColor: string;
   canTrigger: boolean;
-}[] = [
+}> = [
   {
     id: 'instagram',
     name: 'Instagram',
@@ -158,11 +161,9 @@ export default async function AccountsPage() {
                     </div>
                   </div>
                   <div className="flex gap-1">
-                    {platform.canTrigger && (
-                      <Badge variant="outline" className="text-xs border-[#4FD1C5]/30 text-[#4FD1C5] bg-[#4FD1C5]/5">
+                    {platform.canTrigger ? <Badge variant="outline" className="text-xs border-[#4FD1C5]/30 text-[#4FD1C5] bg-[#4FD1C5]/5">
                         Trigger
-                      </Badge>
-                    )}
+                      </Badge> : null}
                     <Badge variant="outline" className="text-xs border-[rgba(230,194,122,0.2)] text-[#9AA3B2] bg-transparent">
                       Publish
                     </Badge>
@@ -226,17 +227,4 @@ export default async function AccountsPage() {
       </div>
     </div>
   );
-}
-
-function getPlatformEmoji(platform: Platform): string {
-  const emojis: Record<Platform, string> = {
-    instagram: '📸',
-    youtube: '▶️',
-    tiktok: '🎵',
-    twitter: '𝕏',
-    linkedin: '💼',
-    facebook: '📘',
-    threads: '🧵',
-  };
-  return emojis[platform] || '🔗';
 }

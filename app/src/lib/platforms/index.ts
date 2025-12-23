@@ -1,7 +1,8 @@
-import type { Connection, Platform } from '@/types';
-import { BasePlatformService, getConnection, PostContent, PostResult } from './base';
+import { type BasePlatformService, getConnection, type PostContent, type PostResult } from './base';
 import { LinkedInService } from './linkedin';
 import { YouTubeService } from './youtube';
+
+import type { Connection, Platform } from '@/types';
 
 export { BasePlatformService, getConnection, downloadMedia } from './base';
 export { LinkedInService } from './linkedin';

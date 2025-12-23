@@ -1,13 +1,15 @@
-import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@/lib/supabase/server';
+import { NextResponse } from 'next/server';
+
 import { getOAuthConfig, getRedirectUri } from '@/lib/oauth/config';
 import {
-  generateState,
-  generateCodeVerifier,
-  generateCodeChallenge,
   buildAuthUrl,
+  generateCodeChallenge,
+  generateCodeVerifier,
+  generateState,
 } from '@/lib/oauth/utils';
+import { createClient } from '@/lib/supabase/server';
+
 import type { Platform } from '@/types';
 
 const VALID_PLATFORMS: Platform[] = [
@@ -20,7 +22,7 @@ const VALID_PLATFORMS: Platform[] = [
   'threads',
 ];
 
-interface RouteParams {
+type RouteParams = {
   params: Promise<{ platform: string }>;
 }
 

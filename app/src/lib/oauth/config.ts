@@ -1,6 +1,6 @@
 import type { Platform } from '@/types';
 
-export interface OAuthConfig {
+export type OAuthConfig = {
   clientId: string;
   clientSecret: string;
   authUrl: string;

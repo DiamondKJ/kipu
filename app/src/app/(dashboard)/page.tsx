@@ -1,9 +1,10 @@
-import { createClient } from '@/lib/supabase/server';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Workflow, Calendar, TrendingUp, ArrowRight } from 'lucide-react';
+import { ArrowRight, Calendar, TrendingUp, Users, Workflow } from 'lucide-react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
+
 import { ActivityFeed } from '@/components/activity/activity-feed';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { createClient } from '@/lib/supabase/server';
+import { cn } from '@/lib/utils';
 
 export default async function DashboardPage() {
   const supabase = await createClient();

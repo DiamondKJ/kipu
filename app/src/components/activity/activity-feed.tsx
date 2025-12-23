@@ -1,20 +1,21 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import {
   ArrowRight,
   CheckCircle2,
+  Link2,
+  Loader2,
+  RefreshCw,
+  Video,
   XCircle,
   Zap,
-  Video,
-  Link2,
-  RefreshCw,
-  Loader2,
 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+
 import { cn } from '@/lib/utils';
 
-interface Activity {
+type Activity = {
   id: string;
   type: string;
   createdAt: string;
@@ -79,7 +80,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   connection_removed: 'Account disconnected',
 };
 
-interface ActivityFeedProps {
+type ActivityFeedProps = {
   limit?: number;
   showRefresh?: boolean;
   className?: string;
@@ -122,13 +123,13 @@ export function ActivityFeed({
   }, [limit]);
 
   useEffect(() => {
-    fetchActivities();
+    void fetchActivities();
   }, [fetchActivities]);
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchActivities(true);
+      void fetchActivities(true);
     }, 30000);
 
     return () => clearInterval(interval);
@@ -172,8 +173,7 @@ export function ActivityFeed({
 
   return (
     <div className={cn('space-y-1', className)}>
-      {showRefresh && (
-        <div className="flex justify-end mb-4">
+      {showRefresh ? <div className="flex justify-end mb-4">
           <button
             onClick={() => fetchActivities(true)}
             disabled={refreshing}
@@ -182,8 +182,7 @@ export function ActivityFeed({
             <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
-        </div>
-      )}
+        </div> : null}
 
       <div className="space-y-2">
         {activities.map((activity) => (
@@ -239,17 +238,14 @@ function ActivityItem({ activity }: { activity: Activity }) {
           <span className="text-sm font-medium text-[#E6E8EF]">{label}</span>
 
           {/* Platform badges */}
-          {activity.sourcePlatform && (
-            <span
+          {activity.sourcePlatform ? <span
               className="px-2 py-0.5 text-xs rounded-full text-white"
               style={{ backgroundColor: sourceColor }}
             >
               {activity.sourcePlatform}
-            </span>
-          )}
+            </span> : null}
 
-          {activity.targetPlatform && (
-            <>
+          {activity.targetPlatform ? <>
               <ArrowRight className="h-3 w-3 text-[#9AA3B2]" />
               <span
                 className="px-2 py-0.5 text-xs rounded-full text-white"
@@ -257,51 +253,40 @@ function ActivityItem({ activity }: { activity: Activity }) {
               >
                 {activity.targetPlatform}
               </span>
-            </>
-          )}
+            </> : null}
         </div>
 
         {/* Content preview */}
-        {activity.content.title && (
-          <p className="text-sm text-[#9AA3B2] truncate mb-1">
+        {activity.content.title ? <p className="text-sm text-[#9AA3B2] truncate mb-1">
             {activity.content.title}
-          </p>
-        )}
+          </p> : null}
 
         {/* Workflow name */}
-        {activity.workflow && (
-          <p className="text-xs text-[#9AA3B2]/60">
+        {activity.workflow ? <p className="text-xs text-[#9AA3B2]/60">
             Workflow: {activity.workflow.name}
-          </p>
-        )}
+          </p> : null}
 
         {/* Error message */}
-        {activity.error && (
-          <p className="text-xs text-red-400 mt-1">{activity.error}</p>
-        )}
+        {activity.error ? <p className="text-xs text-red-400 mt-1">{activity.error}</p> : null}
 
         {/* Links */}
         <div className="flex gap-3 mt-2">
-          {activity.content.sourceUrl && (
-            <a
+          {activity.content.sourceUrl ? <a
               href={activity.content.sourceUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-[#4FD1C5] hover:underline"
             >
               View source
-            </a>
-          )}
-          {activity.content.targetUrl && (
-            <a
+            </a> : null}
+          {activity.content.targetUrl ? <a
               href={activity.content.targetUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-[#4FD1C5] hover:underline"
             >
               View post
-            </a>
-          )}
+            </a> : null}
         </div>
 
         {/* Timestamp */}
@@ -311,15 +296,13 @@ function ActivityItem({ activity }: { activity: Activity }) {
       </div>
 
       {/* Thumbnail */}
-      {activity.content.thumbnailUrl && (
-        <div className="flex-shrink-0 w-20 h-14 rounded-md overflow-hidden bg-[#0B1020]">
+      {activity.content.thumbnailUrl ? <div className="flex-shrink-0 w-20 h-14 rounded-md overflow-hidden bg-[#0B1020]">
           <img
             src={activity.content.thumbnailUrl}
             alt=""
             className="w-full h-full object-cover"
           />
-        </div>
-      )}
+        </div> : null}
     </div>
   );
 }

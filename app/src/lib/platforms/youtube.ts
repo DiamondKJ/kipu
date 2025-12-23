@@ -1,11 +1,11 @@
 import {
   BasePlatformService,
-  PostContent,
-  PostResult,
   downloadMedia,
+  type PostContent,
+  type PostResult,
 } from './base';
 
-interface YouTubeVideoConfig {
+type YouTubeVideoConfig = {
   title: string;
   description?: string;
   tags?: string[];
@@ -15,7 +15,7 @@ interface YouTubeVideoConfig {
   notifySubscribers?: boolean;
 }
 
-interface YouTubeVideoResource {
+type YouTubeVideoResource = {
   kind: string;
   etag: string;
   id: string;
@@ -317,7 +317,7 @@ export class YouTubeService extends BasePlatformService {
   /**
    * List recent videos from the authenticated channel
    */
-  async listRecentVideos(maxResults: number = 10): Promise<YouTubeVideoResource[]> {
+  async listRecentVideos(maxResults = 10): Promise<YouTubeVideoResource[]> {
     const accessToken = await this.ensureValidToken();
 
     // First, get the channel's uploads playlist ID
@@ -393,7 +393,7 @@ export class YouTubeService extends BasePlatformService {
    * Get videos uploaded after a specific date/time
    * Useful for polling for new content
    */
-  async getVideosAfter(afterDate: Date, maxResults: number = 10): Promise<YouTubeVideoResource[]> {
+  async getVideosAfter(afterDate: Date, maxResults = 10): Promise<YouTubeVideoResource[]> {
     const allVideos = await this.listRecentVideos(maxResults);
     return allVideos.filter(video =>
       new Date(video.snippet.publishedAt) > afterDate

@@ -1,21 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { ArrowLeft, ArrowRight, Check, Loader2, Zap } from 'lucide-react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, ArrowRight, Check, Zap, Loader2 } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+
+
 import type { Platform } from '@/types';
 
 type Step = 'name' | 'trigger' | 'actions' | 'review';
 
-interface Connection {
+type Connection = {
   id: string;
   platform: Platform;
   platform_username: string;
@@ -64,7 +67,7 @@ export default function NewWorkflowPage() {
       setLoadingConnections(false);
     }
 
-    fetchConnections();
+    void fetchConnections();
   }, [supabase]);
 
   // Get the selected trigger connection
@@ -73,7 +76,7 @@ export default function NewWorkflowPage() {
   // Get available action connections (exclude trigger)
   const actionConnections = connections.filter((c) => c.id !== triggerConnectionId);
 
-  const steps: { id: Step; label: string }[] = [
+  const steps: Array<{ id: Step; label: string }> = [
     { id: 'name', label: 'Name' },
     { id: 'trigger', label: 'Trigger' },
     { id: 'actions', label: 'Actions' },
@@ -120,7 +123,7 @@ export default function NewWorkflowPage() {
   };
 
   const handleCreate = async () => {
-    if (!triggerConnectionId || selectedActionIds.length === 0) return;
+    if (!triggerConnectionId || selectedActionIds.length === 0) {return;}
 
     setLoading(true);
     setError(null);
@@ -128,7 +131,7 @@ export default function NewWorkflowPage() {
     try {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      if (!user) {throw new Error('Not authenticated');}
 
       // Get user's team (for now, use user_id as team_id placeholder)
       const teamId = user.id;
@@ -147,7 +150,7 @@ export default function NewWorkflowPage() {
         .select()
         .single();
 
-      if (workflowError) throw workflowError;
+      if (workflowError) {throw workflowError;}
 
       // Create workflow steps for each target connection
       const workflowSteps = selectedActionIds.map((connectionId, index) => {
@@ -169,7 +172,7 @@ export default function NewWorkflowPage() {
         .from('workflow_steps')
         .insert(workflowSteps);
 
-      if (stepsError) throw stepsError;
+      if (stepsError) {throw stepsError;}
 
       router.push(`/workflows/${workflow.id}`);
     } catch (err) {
@@ -208,13 +211,11 @@ export default function NewWorkflowPage() {
             >
               {i < currentStepIndex ? <Check className="h-4 w-4" /> : i + 1}
             </div>
-            {i < steps.length - 1 && (
-              <div
+            {i < steps.length - 1 ? <div
                 className={`w-12 h-0.5 mx-2 ${
                   i < currentStepIndex ? 'bg-teal-500' : 'bg-zinc-800'
                 }`}
-              />
-            )}
+              /> : null}
           </div>
         ))}
       </div>
@@ -223,27 +224,24 @@ export default function NewWorkflowPage() {
       <Card className="bg-zinc-900 border-zinc-800">
         <CardHeader>
           <CardTitle className="text-white">
-            {step === 'name' && 'Name your workflow'}
-            {step === 'trigger' && 'Choose a trigger'}
-            {step === 'actions' && 'Select actions'}
-            {step === 'review' && 'Review & create'}
+            {step === 'name' ? 'Name your workflow' : null}
+            {step === 'trigger' ? 'Choose a trigger' : null}
+            {step === 'actions' ? 'Select actions' : null}
+            {step === 'review' ? 'Review & create' : null}
           </CardTitle>
           <CardDescription className="text-zinc-400">
-            {step === 'name' && 'Give your workflow a memorable name'}
-            {step === 'trigger' && 'Select the platform that will trigger this workflow'}
-            {step === 'actions' && 'Choose where to publish content'}
-            {step === 'review' && 'Review your workflow configuration'}
+            {step === 'name' ? 'Give your workflow a memorable name' : null}
+            {step === 'trigger' ? 'Select the platform that will trigger this workflow' : null}
+            {step === 'actions' ? 'Choose where to publish content' : null}
+            {step === 'review' ? 'Review your workflow configuration' : null}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {error && (
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          {error ? <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
               {error}
-            </div>
-          )}
+            </div> : null}
 
-          {step === 'name' && (
-            <div className="space-y-4">
+          {step === 'name' ? <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-zinc-300">
                   Workflow name
@@ -269,11 +267,9 @@ export default function NewWorkflowPage() {
                   rows={3}
                 />
               </div>
-            </div>
-          )}
+            </div> : null}
 
-          {step === 'trigger' && (
-            <div className="grid gap-3">
+          {step === 'trigger' ? <div className="grid gap-3">
               {loadingConnections ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
@@ -320,18 +316,14 @@ export default function NewWorkflowPage() {
                           {info?.name} • Trigger on new content
                         </p>
                       </div>
-                      {triggerConnectionId === connection.id && (
-                        <Check className="h-5 w-5 text-teal-400" />
-                      )}
+                      {triggerConnectionId === connection.id ? <Check className="h-5 w-5 text-teal-400" /> : null}
                     </button>
                   );
                 })
               )}
-            </div>
-          )}
+            </div> : null}
 
-          {step === 'actions' && (
-            <div className="grid gap-3 sm:grid-cols-2">
+          {step === 'actions' ? <div className="grid gap-3 sm:grid-cols-2">
               {actionConnections.length === 0 ? (
                 <div className="col-span-2 text-center py-8 space-y-3">
                   <p className="text-zinc-400">No other accounts to publish to</p>
@@ -372,18 +364,14 @@ export default function NewWorkflowPage() {
                         </p>
                         <p className="text-xs text-zinc-500">{info?.name}</p>
                       </div>
-                      {selectedActionIds.includes(connection.id) && (
-                        <Check className="h-4 w-4 text-teal-400" />
-                      )}
+                      {selectedActionIds.includes(connection.id) ? <Check className="h-4 w-4 text-teal-400" /> : null}
                     </button>
                   );
                 })
               )}
-            </div>
-          )}
+            </div> : null}
 
-          {step === 'review' && (
-            <div className="space-y-4">
+          {step === 'review' ? <div className="space-y-4">
               <div className="p-4 rounded-lg bg-zinc-800/50 space-y-3">
                 <div>
                   <p className="text-xs text-zinc-500 uppercase tracking-wide">
@@ -391,14 +379,12 @@ export default function NewWorkflowPage() {
                   </p>
                   <p className="text-white font-medium">{name}</p>
                 </div>
-                {description && (
-                  <div>
+                {description ? <div>
                     <p className="text-xs text-zinc-500 uppercase tracking-wide">
                       Description
                     </p>
                     <p className="text-zinc-300">{description}</p>
-                  </div>
-                )}
+                  </div> : null}
               </div>
 
               <div className="flex items-center gap-3 p-4 rounded-lg bg-zinc-800/50">
@@ -438,8 +424,7 @@ export default function NewWorkflowPage() {
                   })}
                 </div>
               </div>
-            </div>
-          )}
+            </div> : null}
         </CardContent>
       </Card>
 

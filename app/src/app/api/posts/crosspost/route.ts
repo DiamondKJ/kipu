@@ -1,13 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createServiceClient } from '@/lib/supabase/server';
-import {
-  crossPostVideo,
-  crossPostToMultiple,
-  youtubeToLinkedInCaption,
-  linkedInToYouTubeMetadata,
-} from '@/lib/platforms/crosspost';
+import { type NextRequest, NextResponse } from 'next/server';
 
-interface CrossPostRequestBody {
+import {
+  crossPostToMultiple,
+  crossPostVideo,
+} from '@/lib/platforms/crosspost';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
+
+type CrossPostRequestBody = {
   sourceConnectionId: string;
   sourceVideoUrl: string;
   sourceCaption: string;
@@ -84,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify user has access to all connections
-    const serviceClient = await createServiceClient();
+    const serviceClient = createServiceClient();
     const connectionIds = [
       body.sourceConnectionId,
       ...(body.targetConnectionId ? [body.targetConnectionId] : []),
@@ -183,7 +182,7 @@ export async function POST(request: NextRequest) {
         success: results.every((r) => r.success),
         results,
       });
-    } else {
+    } 
       // Single target
       const result = await crossPostVideo({
         sourceConnectionId: body.sourceConnectionId,
@@ -220,7 +219,7 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json(result);
-    }
+    
   } catch (error) {
     console.error('Cross-post error:', error);
     return NextResponse.json(
