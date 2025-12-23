@@ -282,6 +282,147 @@ CREATE POLICY "Users can view their tracked content"
     ));
 
 -- ============================================
+-- ACTIVITY LOG (For unified activity feed)
+-- ============================================
+CREATE TABLE IF NOT EXISTS activity_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    team_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    activity_type TEXT NOT NULL CHECK (activity_type IN (
+        'content_detected',      -- New content found on source platform
+        'cross_post_started',    -- Cross-post workflow started
+        'cross_post_completed',  -- Successfully posted to target
+        'cross_post_failed',     -- Failed to post to target
+        'workflow_triggered',    -- Workflow was triggered
+        'connection_added',      -- New platform connected
+        'connection_removed'     -- Platform disconnected
+    )),
+    source_platform TEXT,
+    target_platform TEXT,
+    source_connection_id UUID REFERENCES connections(id) ON DELETE SET NULL,
+    target_connection_id UUID REFERENCES connections(id) ON DELETE SET NULL,
+    content_title TEXT,
+    content_preview TEXT,
+    content_thumbnail_url TEXT,
+    source_url TEXT,
+    target_url TEXT,
+    workflow_id UUID REFERENCES workflows(id) ON DELETE SET NULL,
+    execution_id UUID REFERENCES workflow_executions(id) ON DELETE SET NULL,
+    error_message TEXT,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_log_team ON activity_log(team_id);
+CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_log_type ON activity_log(activity_type);
+
+-- RLS for activity_log
+ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their activity log"
+    ON activity_log FOR SELECT
+    USING (auth.uid() = team_id);
+
+CREATE POLICY "Service can insert activity log"
+    ON activity_log FOR INSERT
+    WITH CHECK (true);
+
+-- ============================================
+-- POSTS TABLE (For tracking published content)
+-- ============================================
+CREATE TABLE IF NOT EXISTS posts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    team_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    workflow_run_id UUID REFERENCES workflow_executions(id) ON DELETE SET NULL,
+    connection_id UUID REFERENCES connections(id) ON DELETE SET NULL,
+    platform TEXT NOT NULL,
+    platform_post_id TEXT,
+    content_type TEXT DEFAULT 'text' CHECK (content_type IN ('text', 'image', 'video', 'carousel')),
+    caption TEXT,
+    media_urls TEXT[] DEFAULT '{}',
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'publishing', 'published', 'failed')),
+    scheduled_at TIMESTAMPTZ,
+    published_at TIMESTAMPTZ,
+    error TEXT,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_posts_team ON posts(team_id);
+CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status);
+CREATE INDEX IF NOT EXISTS idx_posts_platform ON posts(platform);
+
+-- RLS for posts
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their posts"
+    ON posts FOR SELECT
+    USING (auth.uid() = team_id);
+
+CREATE POLICY "Users can manage their posts"
+    ON posts FOR ALL
+    USING (auth.uid() = team_id);
+
+-- ============================================
+-- WORKFLOW RUNS TABLE (simplified tracking)
+-- ============================================
+CREATE TABLE IF NOT EXISTS workflow_runs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workflow_id UUID NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'completed', 'failed')),
+    trigger_data JSONB DEFAULT '{}',
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    error TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow ON workflow_runs(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_runs_status ON workflow_runs(status);
+
+-- RLS for workflow_runs
+ALTER TABLE workflow_runs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their workflow runs"
+    ON workflow_runs FOR SELECT
+    USING (EXISTS (
+        SELECT 1 FROM workflows
+        WHERE workflows.id = workflow_runs.workflow_id
+        AND workflows.team_id = auth.uid()
+    ));
+
+-- ============================================
+-- WORKFLOW STEP RUNS TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS workflow_step_runs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    run_id UUID NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+    step_id UUID NOT NULL REFERENCES workflow_steps(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'completed', 'failed', 'skipped')),
+    input_data JSONB DEFAULT '{}',
+    output_data JSONB DEFAULT '{}',
+    error TEXT,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_step_runs_run ON workflow_step_runs(run_id);
+
+-- RLS for workflow_step_runs
+ALTER TABLE workflow_step_runs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their workflow step runs"
+    ON workflow_step_runs FOR SELECT
+    USING (EXISTS (
+        SELECT 1 FROM workflow_runs wr
+        JOIN workflows w ON w.id = wr.workflow_id
+        WHERE wr.id = workflow_step_runs.run_id
+        AND w.team_id = auth.uid()
+    ));
+
+-- ============================================
 -- FUNCTIONS & TRIGGERS
 -- ============================================
 

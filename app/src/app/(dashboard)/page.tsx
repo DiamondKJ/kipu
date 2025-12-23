@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Workflow, Calendar, TrendingUp, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { ActivityFeed } from '@/components/activity/activity-feed';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -160,31 +161,22 @@ export default async function DashboardPage() {
 
       {/* Recent Activity */}
       <div className="space-y-4">
-        <h2 className="text-lg font-medium text-[#E6E8EF]">Signal Activity</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium text-[#E6E8EF]">Signal Activity</h2>
+          <Link
+            href="/activity"
+            className="text-sm text-[#4FD1C5] hover:underline"
+          >
+            View all
+          </Link>
+        </div>
         <Card className="bg-[#0B1020]/60 border-[rgba(230,194,122,0.1)] backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex flex-col items-center justify-center py-12 space-y-4">
-              {/* Empty state visualization - constellation pattern */}
-              <div className="relative w-24 h-24">
-                <div className="absolute top-0 left-1/2 w-1.5 h-1.5 rounded-full bg-[#E6C27A]/40" />
-                <div className="absolute top-6 right-2 w-1 h-1 rounded-full bg-[#E6C27A]/30" />
-                <div className="absolute bottom-4 left-4 w-2 h-2 rounded-full bg-[#E6C27A]/50" />
-                <div className="absolute bottom-0 right-6 w-1 h-1 rounded-full bg-[#E6C27A]/20" />
-                <div className="absolute top-10 left-0 w-1.5 h-1.5 rounded-full bg-[#E6C27A]/35" />
-
-                {/* Connecting filaments */}
-                <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-                  <line x1="50%" y1="0" x2="20%" y2="80%" stroke="#E6C27A" strokeWidth="0.5" strokeOpacity="0.2" />
-                  <line x1="50%" y1="0" x2="90%" y2="25%" stroke="#E6C27A" strokeWidth="0.5" strokeOpacity="0.15" />
-                  <line x1="20%" y1="80%" x2="0" y2="42%" stroke="#E6C27A" strokeWidth="0.5" strokeOpacity="0.2" />
-                </svg>
-              </div>
-
-              <div className="text-center space-y-2">
-                <p className="text-[#9AA3B2]">No signals detected</p>
-                <p className="text-sm text-[#6B7280]">Connect a node to begin transmission</p>
-              </div>
-            </div>
+          <CardContent className="p-4">
+            <ActivityFeed
+              limit={5}
+              showRefresh={false}
+              emptyMessage="No signals detected yet"
+            />
           </CardContent>
         </Card>
       </div>
