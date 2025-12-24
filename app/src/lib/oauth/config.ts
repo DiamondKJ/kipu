@@ -43,12 +43,13 @@ export const oauthConfigs: Record<Platform, () => OAuthConfig> = {
     clientId: process.env.TIKTOK_CLIENT_KEY!,
     clientSecret: process.env.TIKTOK_CLIENT_SECRET!,
     authUrl: 'https://www.tiktok.com/v2/auth/authorize/',
-    tokenUrl: 'https://open.tiktokapis.com/v2/oauth/token/',
-    scopes: [
-      'user.info.basic',
-      'video.publish',
-      'video.upload',
-    ],
+    tokenUrl: 'https://open.tiktokapis.com/v2/oauth/token/', // Same URL for sandbox and production
+    scopes: process.env.TIKTOK_SANDBOX === 'true'
+      ? ['user.info.basic']
+      : ['user.info.basic', 'video.publish', 'video.upload'],
+    additionalParams: {
+      code_challenge_method: 'S256',
+    },
   }),
 
   twitter: () => ({
@@ -82,12 +83,16 @@ export const oauthConfigs: Record<Platform, () => OAuthConfig> = {
   facebook: () => ({
     clientId: process.env.FACEBOOK_APP_ID!,
     clientSecret: process.env.FACEBOOK_APP_SECRET!,
-    authUrl: 'https://www.facebook.com/v18.0/dialog/oauth',
-    tokenUrl: 'https://graph.facebook.com/v18.0/oauth/access_token',
+    authUrl: 'https://www.facebook.com/v24.0/dialog/oauth',
+    tokenUrl: 'https://graph.facebook.com/oauth/access_token',
     scopes: [
+      'email',
+      'public_profile',
       'pages_manage_posts',
       'pages_read_engagement',
       'pages_show_list',
+      'instagram_basic',
+      'instagram_content_publish',
       'publish_video',
     ],
   }),

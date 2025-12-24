@@ -21,7 +21,12 @@ interface RouteParams {
 
 export async function GET(request: Request, { params }: RouteParams) {
   const url = new URL(request.url);
-  const baseUrl = url.origin;
+
+  // Determine base URL from host header (handles proxy/tunnel scenarios)
+  const host = request.headers.get('host');
+  const protocol = request.headers.get('x-forwarded-proto') ||
+                   (host?.includes('localhost') ? 'http' : 'https');
+  const baseUrl = host ? `${protocol}://${host}` : url.origin;
 
   try {
     const { platform } = await params;
@@ -58,6 +63,7 @@ export async function GET(request: Request, { params }: RouteParams) {
     const storedState = cookieStore.get(`oauth_state_${platform}`)?.value;
 
     if (!storedState || storedState !== state) {
+      console.error('[OAuth] State validation failed', { platform });
       return NextResponse.redirect(
         new URL('/accounts?error=invalid_state', baseUrl)
       );
@@ -115,17 +121,56 @@ export async function GET(request: Request, { params }: RouteParams) {
       delete tokenParams.client_secret;
     }
 
-    const tokens = await exchangeCodeForToken(
+    let tokens = await exchangeCodeForToken(
       config.tokenUrl,
       tokenParams,
       tokenHeaders
     );
+
+    // // Exchange for long-lived token if Facebook
+    // if (platformKey === 'facebook') {
+    //   try {
+    //     const longLivedTokenResponse = await fetch(
+    //       `https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id=${config.clientId}&client_secret=${config.clientSecret}&fb_exchange_token=${tokens.access_token}`
+    //     );
+    //     const longLivedTokenData = await longLivedTokenResponse.json();
+    //     if (longLivedTokenData.access_token) {
+    //       tokens.access_token = longLivedTokenData.access_token;
+    //       // Update expiry if provided
+    //       if (longLivedTokenData.expires_in) {
+    //         tokens.expires_in = longLivedTokenData.expires_in;
+    //       }
+    //     }
+    //   } catch (error) {
+    //     console.error('Failed to exchange for long-lived Facebook token:', error);
+    //     // Continue with short-lived token if exchange fails
+    //   }
+    // }
 
     // Fetch user info from platform
     const platformUserInfo = await fetchPlatformUserInfo(
       platformKey,
       tokens.access_token
     );
+
+    if (process.env.DEBUG_OAUTH === 'true') {
+      console.log('[Platform User Info]', {
+        platform,
+        userId: platformUserInfo.id,
+        username: platformUserInfo.username,
+      });
+    }
+
+    // Fetch Facebook Pages and Instagram accounts if Facebook
+    let metadata: Record<string, unknown> = {};
+    if (platformKey === 'facebook') {
+      try {
+        metadata = await fetchFacebookPagesAndInstagram(tokens.access_token);
+      } catch (error) {
+        console.error('Failed to fetch Facebook pages and Instagram accounts:', error);
+        // Continue without metadata if fetch fails
+      }
+    }
 
     // Get user's team ID (using user.id as team for now)
     const teamId = user.id;
@@ -141,24 +186,40 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     if (existingConnection) {
       // Update existing connection
-      await supabase
+      const updateData: Record<string, any> = {
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token || null,
+        token_expires_at: tokens.expires_in
+          ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+          : null,
+        platform_username: platformUserInfo.username,
+        platform_display_name: platformUserInfo.displayName,
+        platform_avatar_url: platformUserInfo.avatarUrl,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Only add metadata if it has data
+      if (Object.keys(metadata).length > 0) {
+        updateData.metadata = metadata;
+      }
+
+      const { error: updateError } = await supabase
         .from('connections')
-        .update({
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token || null,
-          token_expires_at: tokens.expires_in
-            ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
-            : null,
-          platform_username: platformUserInfo.username,
-          platform_display_name: platformUserInfo.displayName,
-          platform_avatar_url: platformUserInfo.avatarUrl,
-          is_active: true,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', existingConnection.id);
+
+      if (process.env.DEBUG_OAUTH === 'true') {
+        console.log('[DB Update]', {
+          platform,
+          connectionId: existingConnection.id,
+          success: !updateError,
+          error: updateError?.message,
+        });
+      }
     } else {
       // Create new connection
-      await supabase.from('connections').insert({
+      const connectionData: Record<string, any> = {
         team_id: teamId,
         platform: platformKey,
         platform_user_id: platformUserInfo.id,
@@ -172,7 +233,22 @@ export async function GET(request: Request, { params }: RouteParams) {
           : null,
         scopes: config.scopes,
         is_active: true,
-      });
+      };
+
+      // Only add metadata if it has data
+      if (Object.keys(metadata).length > 0) {
+        connectionData.metadata = metadata;
+      }
+
+      const { error: insertError } = await supabase.from('connections').insert(connectionData);
+
+      if (process.env.DEBUG_OAUTH === 'true') {
+        console.log('[DB Insert]', {
+          platform,
+          success: !insertError,
+          error: insertError?.message,
+        });
+      }
     }
 
     return NextResponse.redirect(
@@ -234,7 +310,25 @@ async function fetchPlatformUserInfo(
         }
       );
       const data = await response.json();
+
+      if (process.env.DEBUG_OAUTH === 'true') {
+        console.log('[TikTok API Response]', { data });
+      }
+
       const user = data.data?.user;
+
+      // Handle sandbox mode where user info isn't available
+      if (!user?.open_id && process.env.TIKTOK_SANDBOX === 'true') {
+        // Generate a stable ID from the access token
+        const fallbackId = `tiktok_sandbox_${Buffer.from(accessToken).toString('base64').slice(0, 16)}`;
+        return {
+          id: fallbackId,
+          username: 'TikTok User (Sandbox)',
+          displayName: 'TikTok User (Sandbox)',
+          avatarUrl: undefined,
+        };
+      }
+
       return {
         id: user?.open_id || '',
         username: user?.username || user?.display_name || '',
@@ -296,4 +390,59 @@ async function fetchPlatformUserInfo(
     default:
       throw new Error(`Unsupported platform: ${platform}`);
   }
+}
+
+interface FacebookPage {
+  id: string;
+  name: string;
+  access_token: string;
+  instagram_business_account?: {
+    id: string;
+  };
+}
+
+async function fetchFacebookPagesAndInstagram(
+  userAccessToken: string
+): Promise<Record<string, unknown>> {
+  // Fetch pages the user manages
+  const pagesResponse = await fetch(
+    `https://graph.facebook.com/me/accounts?access_token=${userAccessToken}`
+  );
+  const pagesData = await pagesResponse.json();
+
+  if (!pagesData.data || !Array.isArray(pagesData.data)) {
+    return { pages: [] };
+  }
+
+  const pages: Array<{
+    id: string;
+    name: string;
+    access_token: string;
+    instagram_business_account_id?: string;
+  }> = [];
+
+  // Fetch Instagram Business Account for each page
+  for (const page of pagesData.data) {
+    let instagramAccountId: string | undefined;
+
+    try {
+      const igResponse = await fetch(
+        `https://graph.facebook.com/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`
+      );
+      const igData = await igResponse.json();
+      instagramAccountId = igData.instagram_business_account?.id;
+    } catch (error) {
+      console.error(`Failed to fetch Instagram account for page ${page.id}:`, error);
+      // Continue without Instagram account
+    }
+
+    pages.push({
+      id: page.id,
+      name: page.name,
+      access_token: page.access_token,
+      instagram_business_account_id: instagramAccountId,
+    });
+  }
+
+  return { pages };
 }
