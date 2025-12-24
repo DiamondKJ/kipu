@@ -140,14 +140,14 @@ export default function NewWorkflowPage() {
       // Get user's team (for now, use user_id as team_id placeholder)
       const teamId = user.id;
 
-      // Create workflow with trigger connection
+      // Create workflow with trigger connection (active by default)
       const { data: workflow, error: workflowError } = await supabase
         .from('workflows')
         .insert({
           team_id: teamId,
           name,
           description: description || null,
-          is_active: false,
+          is_active: true,
           trigger_connection_id: triggerConnectionId,
           trigger_action: 'on_new_post',
         })
