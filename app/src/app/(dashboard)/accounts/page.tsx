@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { DisconnectButton } from '@/components/ui/disconnect-button';
 import { Plus, Check } from 'lucide-react';
 import type { Platform, Connection } from '@/types';
 
@@ -182,7 +183,7 @@ export default async function AccountsPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       {conn.is_active ? (
                         <div className="flex items-center gap-1.5">
                           <div className="w-1.5 h-1.5 rounded-full bg-[#4FD1C5]" />
@@ -193,6 +194,11 @@ export default async function AccountsPage() {
                           Disconnected
                         </Badge>
                       )}
+                      <DisconnectButton
+                        connectionId={conn.id}
+                        platform={platform.id}
+                        displayName={conn.platform_display_name || conn.platform_username}
+                      />
                     </div>
                   </div>
                 ))}
