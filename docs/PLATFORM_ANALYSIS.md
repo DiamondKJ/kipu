@@ -44,8 +44,8 @@ END
 | Pinterest      | ✅         | ✅        | Pins |
 | Mastodon       | ✅         | ✅        | Toots |
 | Bluesky        | ✅         | ✅        | |
-| LinkedIn       | ❌         | ✅        | Target only |
-| YouTube        | ❌         | ✅        | Target only, videos only |
+| LinkedIn       | ✅         | ✅        | Poll-based trigger (UGC Posts API) |
+| YouTube        | ✅         | ✅        | Poll-based trigger (uploads playlist) |
 
 ---
 

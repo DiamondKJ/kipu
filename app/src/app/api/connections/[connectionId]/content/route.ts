@@ -36,7 +36,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const serviceClient = createServiceClient();
     const { data: connection, error: connectionError } = await serviceClient
       .from('connections')
-      .select('*, teams!inner(owner_id)')
+      .select('*')
       .eq('id', connectionId)
       .single();
 
@@ -47,22 +47,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Check user has access
-    const isOwner = (connection.teams as { owner_id: string }).owner_id === user.id;
-    if (!isOwner) {
-      const { data: membership } = await serviceClient
-        .from('team_members')
-        .select('role')
-        .eq('team_id', connection.team_id)
-        .eq('user_id', user.id)
-        .single();
-
-      if (!membership) {
-        return NextResponse.json(
-          { error: 'Access denied' },
-          { status: 403 }
-        );
-      }
+    // Check user owns this connection (team_id = user.id for MVP)
+    if (connection.team_id !== user.id) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
     }
 
     // Fetch content based on platform

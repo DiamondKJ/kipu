@@ -132,17 +132,20 @@ export async function GET(request: Request, { params }: RouteParams) {
     // Get user's team ID (using user.id as team for now)
     const teamId = user.id;
 
-    // Check if connection already exists
-    const { data: existingConnection } = await supabase
+    // Enforce single connection per platform: delete any existing connections
+    // for this platform before creating/updating
+    const { data: existingConnections } = await supabase
       .from('connections')
-      .select('id')
+      .select('id, platform_user_id')
       .eq('team_id', teamId)
-      .eq('platform', platformKey)
-      .eq('platform_user_id', platformUserInfo.id)
-      .single();
+      .eq('platform', platformKey);
 
-    if (existingConnection) {
-      // Update existing connection
+    const sameAccountConnection = existingConnections?.find(
+      (c) => c.platform_user_id === platformUserInfo.id
+    );
+
+    if (sameAccountConnection) {
+      // Update existing connection for the same account
       await supabase
         .from('connections')
         .update({
@@ -157,8 +160,27 @@ export async function GET(request: Request, { params }: RouteParams) {
           is_active: true,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', existingConnection.id);
+        .eq('id', sameAccountConnection.id);
+
+      // Delete any other connections for this platform (enforce single connection)
+      const otherConnectionIds = existingConnections
+        ?.filter((c) => c.id !== sameAccountConnection.id)
+        .map((c) => c.id);
+      if (otherConnectionIds && otherConnectionIds.length > 0) {
+        await supabase
+          .from('connections')
+          .delete()
+          .in('id', otherConnectionIds);
+      }
     } else {
+      // Delete all existing connections for this platform (enforce single connection)
+      if (existingConnections && existingConnections.length > 0) {
+        await supabase
+          .from('connections')
+          .delete()
+          .in('id', existingConnections.map((c) => c.id));
+      }
+
       // Create new connection
       await supabase.from('connections').insert({
         team_id: teamId,

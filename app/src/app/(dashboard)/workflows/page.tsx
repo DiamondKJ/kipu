@@ -1,17 +1,9 @@
-import { MoreHorizontal, Pause, Play, Plus, Trash2, Zap } from 'lucide-react';
+import { Plus, Zap } from 'lucide-react';
 import Link from 'next/link';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Switch } from '@/components/ui/switch';
+import { WorkflowCard } from '@/components/workflows/workflow-card';
 import { createClient } from '@/lib/supabase/server';
 
 export default async function WorkflowsPage() {
@@ -59,115 +51,7 @@ export default async function WorkflowsPage() {
       {workflows && workflows.length > 0 ? (
         <div className="space-y-4">
           {workflows.map((workflow) => (
-            <Card
-              key={workflow.id}
-              className="bg-zinc-900 border-zinc-800 hover:border-zinc-700 transition-colors"
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  {/* Left: Workflow Info */}
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`h-12 w-12 rounded-lg flex items-center justify-center ${
-                        workflow.is_active
-                          ? 'bg-teal-500/10'
-                          : 'bg-zinc-800'
-                      }`}
-                    >
-                      <Zap
-                        className={`h-6 w-6 ${
-                          workflow.is_active ? 'text-teal-400' : 'text-zinc-500'
-                        }`}
-                      />
-                    </div>
-                    <div>
-                      <Link
-                        href={`/workflows/${workflow.id}`}
-                        className="text-lg font-medium text-white hover:text-teal-400 transition-colors"
-                      >
-                        {workflow.name}
-                      </Link>
-                      <p className="text-sm text-zinc-500">
-                        {workflow.description || 'No description'}
-                      </p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge
-                          variant="outline"
-                          className="text-xs border-zinc-700"
-                        >
-                          {workflow.trigger_connection?.platform || 'No trigger'}
-                        </Badge>
-                        <span className="text-zinc-600">→</span>
-                        {workflow.workflow_steps?.map((step: { id: string; target_connection?: { platform: string } }) => (
-                          <Badge
-                            key={step.id}
-                            variant="outline"
-                            className="text-xs border-zinc-700"
-                          >
-                            {step.target_connection?.platform}
-                          </Badge>
-                        ))}
-                        {(!workflow.workflow_steps || workflow.workflow_steps.length === 0) ? <span className="text-xs text-zinc-500">No actions</span> : null}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right: Controls */}
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-zinc-500">
-                        {workflow.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                      <Switch
-                        checked={workflow.is_active}
-                        className="data-[state=checked]:bg-teal-500"
-                      />
-                    </div>
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-zinc-400 hover:text-white"
-                        >
-                          <MoreHorizontal className="h-5 w-5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/workflows/${workflow.id}`}>
-                            Edit workflow
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Play className="h-4 w-4 mr-2" />
-                          Run now
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          {workflow.is_active ? (
-                            <>
-                              <Pause className="h-4 w-4 mr-2" />
-                              Pause
-                            </>
-                          ) : (
-                            <>
-                              <Play className="h-4 w-4 mr-2" />
-                              Activate
-                            </>
-                          )}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-400">
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <WorkflowCard key={workflow.id} workflow={workflow} />
           ))}
         </div>
       ) : (

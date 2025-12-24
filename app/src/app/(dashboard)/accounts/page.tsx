@@ -1,11 +1,10 @@
 import { Plus } from 'lucide-react';
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ConnectionItem } from '@/components/accounts/connection-item';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { createClient } from '@/lib/supabase/server';
-
 
 import type { Connection, Platform } from '@/types';
 
@@ -174,39 +173,7 @@ export default async function AccountsPage() {
               <CardContent className="space-y-3">
                 {/* Connected Accounts */}
                 {platformConnections.map((conn: Connection) => (
-                  <div
-                    key={conn.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-[#1C2233]/50 border border-[rgba(230,194,122,0.05)]"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8 ring-1 ring-[rgba(230,194,122,0.1)]">
-                        <AvatarImage src={conn.platform_avatar_url || undefined} />
-                        <AvatarFallback className="bg-[#1C2233] text-[#9AA3B2] text-xs">
-                          {conn.platform_username?.[0]?.toUpperCase() || '?'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="text-sm font-medium text-[#E6E8EF]">
-                          {conn.platform_display_name || conn.platform_username}
-                        </p>
-                        <p className="text-xs text-[#6B7280]">
-                          @{conn.platform_username}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {conn.is_active ? (
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-1.5 h-1.5 rounded-full bg-[#4FD1C5]" />
-                          <span className="text-xs text-[#4FD1C5]">Active</span>
-                        </div>
-                      ) : (
-                        <Badge variant="outline" className="text-xs border-red-500/30 text-red-400">
-                          Disconnected
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
+                  <ConnectionItem key={conn.id} connection={conn} />
                 ))}
 
                 {/* Connect Button */}
@@ -217,7 +184,7 @@ export default async function AccountsPage() {
                 >
                   <a href={`/api/oauth/${platform.id}/initiate`}>
                     <Plus className="h-4 w-4 mr-2" />
-                    {hasConnections ? 'Add another node' : 'Connect'}
+                    {hasConnections ? 'Reconnect' : 'Connect'}
                   </a>
                 </Button>
               </CardContent>

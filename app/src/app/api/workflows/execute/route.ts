@@ -1,13 +1,13 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
-import { crossPostVideo } from '@/lib/platforms';
+import { crossPostVideo, LinkedInService, YouTubeService } from '@/lib/platforms';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 
-import type { PublishConfig, WorkflowStep } from '@/types';
+import type { Connection, PublishConfig, WorkflowStep } from '@/types';
 
 type ExecuteWorkflowRequest = {
   workflowId: string;
-  triggerData: {
+  triggerData?: {
     videoUrl: string;
     caption: string;
     platformPostId?: string;
@@ -25,7 +25,7 @@ type StepResult = {
 
 /**
  * POST /api/workflows/execute
- * Execute a workflow with trigger data
+ * Execute a workflow - either with provided trigger data or by polling for latest content
  */
 export async function POST(request: NextRequest) {
   try {
@@ -49,20 +49,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!body.triggerData?.videoUrl) {
-      return NextResponse.json(
-        { error: 'triggerData.videoUrl is required' },
-        { status: 400 }
-      );
-    }
-
     const serviceClient = createServiceClient();
 
     // Get workflow with steps
     const { data: workflow, error: workflowError } = await serviceClient
       .from('workflows')
-      .select('*, teams!inner(owner_id)')
+      .select('*')
       .eq('id', body.workflowId)
+      .eq('team_id', user.id)
       .single();
 
     if (workflowError || !workflow) {
@@ -72,21 +66,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check user has access
-    if (workflow.teams.owner_id !== user.id) {
-      const { data: membership } = await serviceClient
-        .from('team_members')
-        .select('role')
-        .eq('team_id', workflow.team_id)
-        .eq('user_id', user.id)
+    // Get trigger connection to fetch latest content if not provided
+    let triggerData = body.triggerData;
+
+    if (!triggerData) {
+      const { data: triggerConnection } = await serviceClient
+        .from('connections')
+        .select('*')
+        .eq('id', workflow.trigger_connection_id)
         .single();
 
-      if (!membership) {
+      if (!triggerConnection) {
         return NextResponse.json(
-          { error: 'Access denied to this workflow' },
-          { status: 403 }
+          { error: 'Trigger connection not found' },
+          { status: 404 }
         );
       }
+
+      // Fetch latest content from trigger platform
+      const latestContent = await getLatestContent(triggerConnection as Connection);
+
+      if (!latestContent) {
+        return NextResponse.json(
+          { error: 'No content found on trigger platform' },
+          { status: 404 }
+        );
+      }
+
+      triggerData = latestContent;
     }
 
     // Get workflow steps
@@ -116,7 +123,7 @@ export async function POST(request: NextRequest) {
       .insert({
         workflow_id: body.workflowId,
         status: 'running',
-        trigger_data: body.triggerData,
+        trigger_data: triggerData,
         started_at: new Date().toISOString(),
       })
       .select()
@@ -131,13 +138,13 @@ export async function POST(request: NextRequest) {
 
     // Execute each step
     const results: StepResult[] = [];
-    const currentCaption = body.triggerData.caption;
+    const currentCaption = triggerData.caption;
 
     for (const step of steps as WorkflowStep[]) {
       const stepResult = await executeStep(
         step,
         workflow.trigger_connection_id,
-        body.triggerData.videoUrl,
+        triggerData.videoUrl,
         currentCaption,
         serviceClient,
         workflowRun.id
@@ -151,7 +158,7 @@ export async function POST(request: NextRequest) {
         step_id: step.id,
         status: stepResult.success ? 'completed' : 'failed',
         input_data: {
-          videoUrl: body.triggerData.videoUrl,
+          videoUrl: triggerData.videoUrl,
           caption: currentCaption,
         },
         output_data: {
@@ -189,9 +196,12 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Workflow execution error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Workflow execution failed';
+    const errorStack = error instanceof Error ? error.stack : undefined;
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Workflow execution failed',
+        error: errorMessage,
+        stack: errorStack,
       },
       { status: 500 }
     );
@@ -323,5 +333,46 @@ async function executeStep(
       success: false,
       error: error instanceof Error ? error.message : 'Step execution failed',
     };
+  }
+}
+
+/**
+ * Get the latest content from a connection's platform
+ */
+async function getLatestContent(
+  connection: Connection
+): Promise<{ videoUrl: string; caption: string } | null> {
+  try {
+    if (connection.platform === 'youtube') {
+      const service = new YouTubeService(connection);
+      const videos = await service.listRecentVideos(1);
+
+      if (videos.length === 0) return null;
+
+      const video = videos[0];
+      return {
+        videoUrl: `https://youtube.com/watch?v=${video.id}`,
+        caption: video.snippet.description || video.snippet.title,
+      };
+    }
+
+    if (connection.platform === 'linkedin') {
+      const service = new LinkedInService(connection);
+      const posts = await service.listRecentPosts(1);
+
+      if (posts.length === 0) return null;
+
+      const post = posts[0];
+      const text = post.specificContent['com.linkedin.ugc.ShareContent'].shareCommentary.text;
+      return {
+        videoUrl: `https://www.linkedin.com/feed/update/${post.id}`,
+        caption: text,
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Failed to get latest content:', error);
+    return null;
   }
 }

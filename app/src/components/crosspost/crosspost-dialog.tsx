@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -56,7 +56,6 @@ export function CrossPostDialog({
   } | null>(null);
 
   // Form state
-  const [sourceConnectionId, setSourceConnectionId] = useState('');
   const [targetConnectionId, setTargetConnectionId] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [caption, setCaption] = useState('');
@@ -64,12 +63,12 @@ export function CrossPostDialog({
   const [youtubePrivacy, setYoutubePrivacy] = useState<'public' | 'unlisted' | 'private'>('private');
   const [linkedinVisibility, setLinkedinVisibility] = useState<'PUBLIC' | 'CONNECTIONS'>('PUBLIC');
 
-  // Filter connections by platform
-  const youtubeConnections = connections.filter((c) => c.platform === 'youtube');
-  const linkedinConnections = connections.filter((c) => c.platform === 'linkedin');
+  // Filter connections by supported platforms
+  const supportedConnections = connections.filter((c) =>
+    c.platform === 'youtube' || c.platform === 'linkedin'
+  );
 
-  // Get selected connections
-  const _sourceConnection = connections.find((c) => c.id === sourceConnectionId);
+  // Get selected connection
   const targetConnection = connections.find((c) => c.id === targetConnectionId);
 
   // Reset form when dialog closes
@@ -77,6 +76,7 @@ export function CrossPostDialog({
     if (!open) {
       setTimeout(() => {
         setResult(null);
+        setTargetConnectionId('');
         setVideoUrl('');
         setCaption('');
         setYoutubeTitle('');
@@ -91,10 +91,9 @@ export function CrossPostDialog({
 
     try {
       const body: Record<string, unknown> = {
-        sourceConnectionId,
         targetConnectionId,
-        sourceVideoUrl: videoUrl,
-        sourceCaption: caption,
+        videoUrl,
+        caption,
       };
 
       // Add platform-specific options
@@ -121,14 +120,14 @@ export function CrossPostDialog({
       if (data.success) {
         setResult({
           success: true,
-          message: 'Cross-post successful!',
+          message: 'Posted successfully!',
           url: data.platformUrl,
         });
         onSuccess?.();
       } else {
         setResult({
           success: false,
-          message: data.error || 'Cross-post failed',
+          message: data.error || 'Post failed',
         });
       }
     } catch (error) {
@@ -146,15 +145,15 @@ export function CrossPostDialog({
       <DialogTrigger asChild>
         {trigger || (
           <Button className="bg-[#E6C27A] text-[#05060A] hover:bg-[#E6C27A]/90">
-            Cross-Post
+            Post Video
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="bg-[#0B1020] border-[rgba(230,194,122,0.2)] text-[#E6E8EF] max-w-lg">
         <DialogHeader>
-          <DialogTitle>Cross-Post Video</DialogTitle>
+          <DialogTitle>Post Video</DialogTitle>
           <DialogDescription className="text-[#9AA3B2]">
-            Post a video from one platform to another
+            Post a video to YouTube or LinkedIn
           </DialogDescription>
         </DialogHeader>
 
@@ -182,7 +181,7 @@ export function CrossPostDialog({
             ) : (
               <>
                 <XCircle className="h-12 w-12 mx-auto text-red-400" />
-                <p className="text-lg font-medium text-[#E6E8EF]">Cross-post failed</p>
+                <p className="text-lg font-medium text-[#E6E8EF]">Post failed</p>
                 <p className="text-sm text-[#9AA3B2]">{result.message}</p>
                 <Button
                   onClick={() => setResult(null)}
@@ -196,55 +195,27 @@ export function CrossPostDialog({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Source and Target Selection */}
-            <div className="flex items-center gap-4">
-              <div className="flex-1 space-y-2">
-                <Label className="text-[#9AA3B2]">From</Label>
-                <Select value={sourceConnectionId} onValueChange={setSourceConnectionId}>
-                  <SelectTrigger className="bg-[#05060A] border-[rgba(230,194,122,0.2)]">
-                    <SelectValue placeholder="Select source" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#0B1020] border-[rgba(230,194,122,0.2)]">
-                    {[...youtubeConnections, ...linkedinConnections].map((conn) => (
-                      <SelectItem key={conn.id} value={conn.id}>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: PLATFORM_COLORS[conn.platform] }}
-                          />
-                          {conn.platform_display_name || conn.platform_username}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <ArrowRight className="h-5 w-5 text-[#9AA3B2] mt-6" />
-
-              <div className="flex-1 space-y-2">
-                <Label className="text-[#9AA3B2]">To</Label>
-                <Select value={targetConnectionId} onValueChange={setTargetConnectionId}>
-                  <SelectTrigger className="bg-[#05060A] border-[rgba(230,194,122,0.2)]">
-                    <SelectValue placeholder="Select target" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#0B1020] border-[rgba(230,194,122,0.2)]">
-                    {[...youtubeConnections, ...linkedinConnections]
-                      .filter((c) => c.id !== sourceConnectionId)
-                      .map((conn) => (
-                        <SelectItem key={conn.id} value={conn.id}>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="w-2 h-2 rounded-full"
-                              style={{ backgroundColor: PLATFORM_COLORS[conn.platform] }}
-                            />
-                            {conn.platform_display_name || conn.platform_username}
-                          </div>
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Target Selection */}
+            <div className="space-y-2">
+              <Label className="text-[#9AA3B2]">Post to</Label>
+              <Select value={targetConnectionId} onValueChange={setTargetConnectionId}>
+                <SelectTrigger className="bg-[#05060A] border-[rgba(230,194,122,0.2)]">
+                  <SelectValue placeholder="Select destination" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#0B1020] border-[rgba(230,194,122,0.2)]">
+                  {supportedConnections.map((conn) => (
+                    <SelectItem key={conn.id} value={conn.id}>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: PLATFORM_COLORS[conn.platform] }}
+                        />
+                        {conn.platform_display_name || conn.platform_username}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Video URL */}
@@ -322,7 +293,7 @@ export function CrossPostDialog({
             {/* Submit */}
             <Button
               type="submit"
-              disabled={loading || !sourceConnectionId || !targetConnectionId || !videoUrl}
+              disabled={loading || !targetConnectionId || !videoUrl}
               className="w-full bg-[#E6C27A] text-[#05060A] hover:bg-[#E6C27A]/90"
             >
               {loading ? (
@@ -331,7 +302,7 @@ export function CrossPostDialog({
                   Posting...
                 </>
               ) : (
-                'Cross-Post'
+                'Post'
               )}
             </Button>
           </form>

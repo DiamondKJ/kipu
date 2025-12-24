@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     const serviceClient = createServiceClient();
     const { data: connection, error: connectionError } = await serviceClient
       .from('connections')
-      .select('*, teams!inner(owner_id)')
+      .select('*')
       .eq('id', body.connectionId)
       .single();
 
@@ -77,22 +77,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user owns the team that owns the connection
-    if (connection.teams.owner_id !== user.id) {
-      // Check if user is a team member
-      const { data: membership } = await serviceClient
-        .from('team_members')
-        .select('role')
-        .eq('team_id', connection.team_id)
-        .eq('user_id', user.id)
-        .single();
-
-      if (!membership) {
-        return NextResponse.json(
-          { error: 'Access denied to this connection' },
-          { status: 403 }
-        );
-      }
+    // Check user owns this connection (team_id = user.id for MVP)
+    if (connection.team_id !== user.id) {
+      return NextResponse.json(
+        { error: 'Access denied to this connection' },
+        { status: 403 }
+      );
     }
 
     // Check if platform supports posting
@@ -158,7 +148,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/posts
- * List posts for the authenticated user's teams
+ * List posts made through Kipu for the authenticated user
  */
 export async function GET(request: NextRequest) {
   try {
@@ -183,31 +173,13 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
-    // Get user's teams
-    const { data: teams } = await supabase
-      .from('teams')
-      .select('id')
-      .eq('owner_id', user.id);
+    const serviceClient = createServiceClient();
 
-    const { data: memberships } = await supabase
-      .from('team_members')
-      .select('team_id')
-      .eq('user_id', user.id);
-
-    const teamIds = [
-      ...(teams?.map((t) => t.id) || []),
-      ...(memberships?.map((m) => m.team_id) || []),
-    ];
-
-    if (teamIds.length === 0) {
-      return NextResponse.json({ posts: [], total: 0 });
-    }
-
-    // Build query
-    let query = supabase
+    // Build query - team_id = user.id for MVP
+    let query = serviceClient
       .from('posts')
-      .select('*, connections(platform, platform_username, platform_display_name)', { count: 'exact' })
-      .in('team_id', teamIds)
+      .select('*, connections(platform, platform_username, platform_display_name, platform_avatar_url)', { count: 'exact' })
+      .eq('team_id', user.id)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 

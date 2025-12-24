@@ -135,11 +135,12 @@ LIMIT 100;
 | Platform | Trigger Support | Publish Support | Video Download | Rate Limit |
 |----------|-----------------|-----------------|----------------|------------|
 | TikTok | ✅ (poll video list) | ✅ | ❌ (EU only) | 600/min |
-| YouTube | ❌ (no trigger API) | ✅ | N/A | 6 uploads/day |
+| YouTube | ✅ (poll uploads playlist) | ✅ | N/A | 6 uploads/day |
 | Instagram | ✅ (webhooks available) | ✅ | N/A | 25 posts/day |
 | Threads | ❌ | ✅ | N/A | 250 posts/day |
 | Facebook | ✅ (webhooks) | ✅ | N/A | Varies |
 | Twitter/X | ✅ (filtered stream) | ✅ | N/A | Varies |
+| LinkedIn | ✅ (poll UGC posts) | ✅ | N/A | Varies |
 
 ---
 

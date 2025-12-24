@@ -178,7 +178,7 @@ For platforms without webhooks, poll every 5-15 minutes:
 interface PollTrigger {
   type: 'poll';
   connection_id: string;
-  platform: 'tiktok' | 'instagram' | 'threads' | 'pinterest' | 'bluesky';
+  platform: 'tiktok' | 'instagram' | 'threads' | 'pinterest' | 'bluesky' | 'youtube' | 'linkedin';
   poll_interval_minutes: number;
   last_checked_at: Date;
   last_post_id: string; // to detect new posts

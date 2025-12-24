@@ -21,6 +21,27 @@ type LinkedInPostConfig = {
   visibility?: 'PUBLIC' | 'CONNECTIONS';
 }
 
+/**
+ * LinkedIn REST API post structure (newer API)
+ */
+type RestliPost = {
+  id: string;
+  author: string;
+  createdAt?: number;
+  publishedAt?: number;
+  lifecycleState?: string;
+  commentary?: string;
+  visibility?: string;
+  content?: {
+    media?: Array<{
+      status: string;
+      media: string;
+      title?: { text: string };
+      description?: { text: string };
+    }>;
+  };
+}
+
 export class LinkedInService extends BasePlatformService {
   private readonly API_BASE = 'https://api.linkedin.com/v2';
   private readonly RESTLI_API_BASE = 'https://api.linkedin.com/rest';
@@ -266,6 +287,90 @@ export class LinkedInService extends BasePlatformService {
   }
 
   /**
+   * Post a video directly from a buffer (for cross-posting downloaded videos)
+   */
+  async postWithVideoBuffer(
+    text: string,
+    videoBuffer: Buffer,
+    visibility: 'PUBLIC' | 'CONNECTIONS' = 'PUBLIC'
+  ): Promise<PostResult> {
+    try {
+      const accessToken = await this.ensureValidToken();
+
+      console.log(`Uploading video buffer (${videoBuffer.length} bytes) to LinkedIn...`);
+
+      // Register the upload for video
+      const registerResponse = await this.registerUpload('video', accessToken);
+      const uploadUrl =
+        registerResponse.value.uploadMechanism[
+          'com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'
+        ].uploadUrl;
+      const asset = registerResponse.value.asset;
+
+      // Upload the video
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'video/mp4',
+        },
+        body: new Uint8Array(videoBuffer),
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        return {
+          success: false,
+          error: `Video upload failed: ${uploadResponse.status} - ${errorText}`,
+        };
+      }
+
+      console.log('Video uploaded, creating post...');
+
+      // Create the post with the uploaded video
+      const postData = this.buildPostPayload(text, visibility, asset, 'video');
+
+      const response = await fetch(`${this.API_BASE}/ugcPosts`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'X-Restli-Protocol-Version': '2.0.0',
+        },
+        body: JSON.stringify(postData),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return {
+          success: false,
+          error: `LinkedIn post failed: ${response.status} - ${errorText}`,
+        };
+      }
+
+      const result = await response.json();
+      const postId = result.id;
+      const platformUrl = postId
+        ? `https://www.linkedin.com/feed/update/${postId}`
+        : undefined;
+
+      console.log('LinkedIn video post created:', platformUrl);
+
+      return {
+        success: true,
+        platformPostId: postId,
+        platformUrl,
+        rawResponse: result,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error posting video to LinkedIn',
+      };
+    }
+  }
+
+  /**
    * Get a specific post by ID
    */
   async getPost(postId: string): Promise<LinkedInPost | null> {
@@ -294,12 +399,23 @@ export class LinkedInService extends BasePlatformService {
 
   /**
    * List recent posts from the authenticated user
-   * Note: LinkedIn API has limitations on listing user's own posts
+   * Tries the newer Posts API first, falls back to UGC Posts API
    */
   async listRecentPosts(count = 10): Promise<LinkedInPost[]> {
     const accessToken = await this.ensureValidToken();
     const authorUrn = this.getMemberUrn();
 
+    // Try the newer Posts API first (LinkedIn API v202401+)
+    try {
+      const postsResult = await this.listPostsViaPostsApi(accessToken, authorUrn, count);
+      if (postsResult.length > 0) {
+        return postsResult;
+      }
+    } catch (err) {
+      console.log('Posts API not available, trying UGC Posts API...', err);
+    }
+
+    // Fall back to UGC Posts API
     const params = new URLSearchParams({
       q: 'authors',
       authors: `List(${authorUrn})`,
@@ -317,11 +433,65 @@ export class LinkedInService extends BasePlatformService {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Failed to list LinkedIn posts:', errorText);
+      // Check if it's a permissions issue
+      if (response.status === 403) {
+        console.error('LinkedIn requires r_member_social scope to read posts. Please reconnect your LinkedIn account.');
+      }
       return [];
     }
 
     const data = await response.json();
     return data.elements || [];
+  }
+
+  /**
+   * List posts using the newer LinkedIn Posts API
+   */
+  private async listPostsViaPostsApi(
+    accessToken: string,
+    authorUrn: string,
+    count: number
+  ): Promise<LinkedInPost[]> {
+    const params = new URLSearchParams({
+      author: authorUrn,
+      count: String(count),
+      q: 'author',
+    });
+
+    const response = await fetch(`${this.RESTLI_API_BASE}/posts?${params}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'LinkedIn-Version': '202401',
+        'X-Restli-Protocol-Version': '2.0.0',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Posts API failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Transform to match LinkedInPost format
+    return (data.elements || []).map((post: RestliPost) => ({
+      id: post.id,
+      author: post.author,
+      created: post.createdAt ? { time: post.createdAt } : undefined,
+      firstPublishedAt: post.publishedAt,
+      lifecycleState: post.lifecycleState || 'PUBLISHED',
+      specificContent: {
+        'com.linkedin.ugc.ShareContent': {
+          shareCommentary: {
+            text: post.commentary || '',
+          },
+          shareMediaCategory: post.content?.media ? 'RICH' : 'NONE',
+          media: post.content?.media,
+        },
+      },
+      visibility: {
+        'com.linkedin.ugc.MemberNetworkVisibility': post.visibility || 'PUBLIC',
+      },
+    }));
   }
 
   /**

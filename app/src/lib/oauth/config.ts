@@ -75,7 +75,7 @@ export const oauthConfigs: Record<Platform, () => OAuthConfig> = {
     scopes: [
       'openid',
       'profile',
-      'w_member_social',
+      'w_member_social', // For posting to LinkedIn
     ],
   }),
 

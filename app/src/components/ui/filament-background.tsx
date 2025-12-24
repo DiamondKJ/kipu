@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
 
 type FilamentNode = {
   id: number;
@@ -30,58 +30,76 @@ type AmbientDot = {
   opacity: number;
 }
 
+function generateFilaments() {
+  const generatedNodes: FilamentNode[] = [];
+  const generatedLines: FilamentLine[] = [];
+  const generatedDots: AmbientDot[] = [];
+
+  // Generate sparse nodes across the viewport
+  const nodeCount = 12;
+  for (let i = 0; i < nodeCount; i++) {
+    generatedNodes.push({
+      id: i,
+      x: 5 + Math.random() * 90,
+      y: 5 + Math.random() * 90,
+      size: 2 + Math.random() * 3,
+      opacity: 0.15 + Math.random() * 0.25,
+    });
+  }
+
+  // Generate connecting filaments between nearby nodes
+  const lineCount = 8;
+  for (let i = 0; i < lineCount; i++) {
+    const startNode = generatedNodes[i % generatedNodes.length];
+    const endNode = generatedNodes[(i + 3) % generatedNodes.length];
+
+    const isCurved = Math.random() > 0.5;
+
+    generatedLines.push({
+      id: i,
+      x1: startNode.x,
+      y1: startNode.y,
+      x2: endNode.x,
+      y2: endNode.y,
+      opacity: 0.05 + Math.random() * 0.1,
+      curved: isCurved,
+      controlX: isCurved ? (startNode.x + endNode.x) / 2 + (Math.random() - 0.5) * 20 : undefined,
+      controlY: isCurved ? (startNode.y + endNode.y) / 2 + (Math.random() - 0.5) * 20 : undefined,
+    });
+  }
+
+  // Generate ambient dots for depth
+  for (let i = 0; i < 30; i++) {
+    generatedDots.push({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      r: 0.5 + Math.random() * 1,
+      opacity: 0.05 + Math.random() * 0.1,
+    });
+  }
+
+  return { nodes: generatedNodes, lines: generatedLines, ambientDots: generatedDots };
+}
+
 export function FilamentBackground() {
-  const { nodes, lines, ambientDots } = useMemo(() => {
-    const generatedNodes: FilamentNode[] = [];
-    const generatedLines: FilamentLine[] = [];
-    const generatedDots: AmbientDot[] = [];
+  const [data, setData] = useState<{
+    nodes: FilamentNode[];
+    lines: FilamentLine[];
+    ambientDots: AmbientDot[];
+  } | null>(null);
 
-    // Generate sparse nodes across the viewport
-    const nodeCount = 12;
-    for (let i = 0; i < nodeCount; i++) {
-      generatedNodes.push({
-        id: i,
-        x: 5 + Math.random() * 90,
-        y: 5 + Math.random() * 90,
-        size: 2 + Math.random() * 3,
-        opacity: 0.15 + Math.random() * 0.25,
-      });
-    }
-
-    // Generate connecting filaments between nearby nodes
-    const lineCount = 8;
-    for (let i = 0; i < lineCount; i++) {
-      const startNode = generatedNodes[i % generatedNodes.length];
-      const endNode = generatedNodes[(i + 3) % generatedNodes.length];
-
-      const isCurved = Math.random() > 0.5;
-
-      generatedLines.push({
-        id: i,
-        x1: startNode.x,
-        y1: startNode.y,
-        x2: endNode.x,
-        y2: endNode.y,
-        opacity: 0.05 + Math.random() * 0.1,
-        curved: isCurved,
-        controlX: isCurved ? (startNode.x + endNode.x) / 2 + (Math.random() - 0.5) * 20 : undefined,
-        controlY: isCurved ? (startNode.y + endNode.y) / 2 + (Math.random() - 0.5) * 20 : undefined,
-      });
-    }
-
-    // Generate ambient dots for depth
-    for (let i = 0; i < 30; i++) {
-      generatedDots.push({
-        id: i,
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        r: 0.5 + Math.random() * 1,
-        opacity: 0.05 + Math.random() * 0.1,
-      });
-    }
-
-    return { nodes: generatedNodes, lines: generatedLines, ambientDots: generatedDots };
+  // Generate random values only on the client to avoid hydration mismatch
+  useEffect(() => {
+    setData(generateFilaments());
   }, []);
+
+  // Don't render anything until client-side generation is complete
+  if (!data) {
+    return null;
+  }
+
+  const { nodes, lines, ambientDots } = data;
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">

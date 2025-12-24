@@ -1,34 +1,12 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
-import {
-  crossPostToMultiple,
-  crossPostVideo,
-} from '@/lib/platforms/crosspost';
+import { postToConnection } from '@/lib/platforms/crosspost';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 
-type CrossPostRequestBody = {
-  sourceConnectionId: string;
-  sourceVideoUrl: string;
-  sourceCaption: string;
-  // Single target
-  targetConnectionId?: string;
-  // Or multiple targets
-  targets?: Array<{
-    connectionId: string;
-    customCaption?: string;
-    youtubeOptions?: {
-      title?: string;
-      description?: string;
-      privacy?: 'public' | 'unlisted' | 'private';
-      tags?: string[];
-      categoryId?: string;
-    };
-    linkedinOptions?: {
-      visibility?: 'PUBLIC' | 'CONNECTIONS';
-    };
-  }>;
-  // Options for single target
-  customCaption?: string;
+type PostRequestBody = {
+  targetConnectionId: string;
+  videoUrl: string;
+  caption?: string;
   youtubeOptions?: {
     title?: string;
     description?: string;
@@ -43,7 +21,7 @@ type CrossPostRequestBody = {
 
 /**
  * POST /api/posts/crosspost
- * Cross-post a video from one platform to another (or multiple)
+ * Post a video to a connected platform
  */
 export async function POST(request: NextRequest) {
   try {
@@ -58,172 +36,111 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body: CrossPostRequestBody = await request.json();
+    const body: PostRequestBody = await request.json();
 
     // Validate required fields
-    if (!body.sourceConnectionId) {
+    if (!body.targetConnectionId) {
       return NextResponse.json(
-        { error: 'sourceConnectionId is required' },
+        { error: 'targetConnectionId is required' },
         { status: 400 }
       );
     }
 
-    if (!body.sourceVideoUrl) {
+    if (!body.videoUrl) {
       return NextResponse.json(
-        { error: 'sourceVideoUrl is required' },
+        { error: 'videoUrl is required' },
         { status: 400 }
       );
     }
 
-    if (!body.targetConnectionId && (!body.targets || body.targets.length === 0)) {
-      return NextResponse.json(
-        { error: 'Either targetConnectionId or targets array is required' },
-        { status: 400 }
-      );
-    }
-
-    // Verify user has access to all connections
+    // Verify user has access to the connection
     const serviceClient = createServiceClient();
-    const connectionIds = [
-      body.sourceConnectionId,
-      ...(body.targetConnectionId ? [body.targetConnectionId] : []),
-      ...(body.targets?.map((t) => t.connectionId) || []),
-    ];
 
-    const { data: connections, error: connectionsError } = await serviceClient
+    const { data: connection, error: connectionError } = await serviceClient
       .from('connections')
-      .select('id, team_id, platform, teams!inner(owner_id)')
-      .in('id', connectionIds);
+      .select('*')
+      .eq('id', body.targetConnectionId)
+      .single();
 
-    if (connectionsError || !connections) {
+    if (connectionError || !connection) {
       return NextResponse.json(
-        { error: 'Failed to verify connections' },
-        { status: 500 }
-      );
-    }
-
-    if (connections.length !== connectionIds.length) {
-      return NextResponse.json(
-        { error: 'One or more connections not found' },
+        { error: 'Connection not found' },
         { status: 404 }
       );
     }
 
-    // Check user has access to all connections' teams
-    const teamIds = [...new Set(connections.map((c) => c.team_id))];
-
-    for (const teamId of teamIds) {
-      const connection = connections.find((c) => c.team_id === teamId) as {
-        id: string;
-        team_id: string;
-        platform: string;
-        teams: { owner_id: string };
-      } | undefined;
-      const isOwner = connection?.teams?.owner_id === user.id;
-
-      if (!isOwner) {
-        const { data: membership } = await serviceClient
-          .from('team_members')
-          .select('role')
-          .eq('team_id', teamId)
-          .eq('user_id', user.id)
-          .single();
-
-        if (!membership) {
-          return NextResponse.json(
-            { error: 'Access denied to one or more connections' },
-            { status: 403 }
-          );
-        }
-      }
+    // Check user owns this connection (team_id = user.id for MVP)
+    if (connection.team_id !== user.id) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
     }
 
-    // Execute cross-post
-    if (body.targets && body.targets.length > 0) {
-      // Multiple targets
-      const results = await crossPostToMultiple(
-        body.sourceConnectionId,
-        body.sourceVideoUrl,
-        body.sourceCaption || '',
-        body.targets
-      );
+    // Post to the platform
+    const result = await postToConnection({
+      connectionId: body.targetConnectionId,
+      videoUrl: body.videoUrl,
+      caption: body.caption || '',
+      youtubeOptions: body.youtubeOptions,
+      linkedinOptions: body.linkedinOptions,
+    });
 
-      // Log posts to database
-      const sourceConnection = connections.find(
-        (c) => c.id === body.sourceConnectionId
-      );
-
-      for (const result of results) {
-        if (result.success) {
-          const targetConnection = connections.find(
-            (c) => c.platform === result.targetPlatform
-          );
-
-          await serviceClient.from('posts').insert({
-            team_id: targetConnection?.team_id || sourceConnection?.team_id,
-            connection_id: targetConnection?.id,
-            platform: result.targetPlatform,
-            platform_post_id: result.platformPostId,
-            content_type: 'video',
-            caption: body.sourceCaption,
-            media_urls: [body.sourceVideoUrl],
-            status: 'published',
-            published_at: new Date().toISOString(),
-            metadata: {
-              crossPostedFrom: body.sourceConnectionId,
-              sourcePlatform: result.sourceplatform,
-              platformUrl: result.platformUrl,
-            },
-          });
-        }
-      }
-
-      return NextResponse.json({
-        success: results.every((r) => r.success),
-        results,
-      });
-    } 
-      // Single target
-      const result = await crossPostVideo({
-        sourceConnectionId: body.sourceConnectionId,
-        targetConnectionId: body.targetConnectionId!,
-        sourceVideoUrl: body.sourceVideoUrl,
-        sourceCaption: body.sourceCaption || '',
-        customCaption: body.customCaption,
-        youtubeOptions: body.youtubeOptions,
-        linkedinOptions: body.linkedinOptions,
+    // Log post and activity if successful
+    if (result.success) {
+      // Insert the post record (using actual schema fields)
+      await serviceClient.from('posts').insert({
+        team_id: connection.team_id,
+        connection_id: body.targetConnectionId,
+        platform: connection.platform,
+        platform_post_id: result.platformPostId,
+        content_type: 'video',
+        caption: body.caption || body.youtubeOptions?.title || '',
+        media_urls: [body.videoUrl],
+        status: 'published',
+        published_at: new Date().toISOString(),
+        metadata: {
+          title: body.youtubeOptions?.title,
+          platformUrl: result.platformUrl,
+          youtubeOptions: body.youtubeOptions,
+          linkedinOptions: body.linkedinOptions,
+        },
       });
 
-      // Log post to database
-      if (result.success) {
-        const targetConnection = connections.find(
-          (c) => c.id === body.targetConnectionId
-        );
+      // Log activity
+      await serviceClient.from('activity_log').insert({
+        team_id: connection.team_id,
+        activity_type: 'cross_post_completed',
+        target_platform: connection.platform,
+        target_connection_id: body.targetConnectionId,
+        content_title: body.youtubeOptions?.title || body.caption?.slice(0, 100) || 'Video post',
+        content_preview: body.caption?.slice(0, 200),
+        target_url: result.platformUrl,
+        metadata: {
+          videoUrl: body.videoUrl,
+          platformPostId: result.platformPostId,
+        },
+      });
+    } else {
+      // Log failed activity
+      await serviceClient.from('activity_log').insert({
+        team_id: connection.team_id,
+        activity_type: 'cross_post_failed',
+        target_platform: connection.platform,
+        target_connection_id: body.targetConnectionId,
+        content_title: body.youtubeOptions?.title || body.caption?.slice(0, 100) || 'Video post',
+        error_message: result.error,
+        metadata: {
+          videoUrl: body.videoUrl,
+        },
+      });
+    }
 
-        await serviceClient.from('posts').insert({
-          team_id: targetConnection?.team_id,
-          connection_id: body.targetConnectionId,
-          platform: result.targetPlatform,
-          platform_post_id: result.platformPostId,
-          content_type: 'video',
-          caption: body.customCaption || body.sourceCaption,
-          media_urls: [body.sourceVideoUrl],
-          status: 'published',
-          published_at: new Date().toISOString(),
-          metadata: {
-            crossPostedFrom: body.sourceConnectionId,
-            sourcePlatform: result.sourceplatform,
-            platformUrl: result.platformUrl,
-          },
-        });
-      }
-
-      return NextResponse.json(result);
-    
+    return NextResponse.json(result);
   } catch (error) {
-    console.error('Cross-post error:', error);
+    console.error('Post error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Cross-post failed' },
+      { error: error instanceof Error ? error.message : 'Post failed' },
       { status: 500 }
     );
   }

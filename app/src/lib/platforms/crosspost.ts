@@ -1,15 +1,40 @@
 import { getConnection, type PostResult } from './base';
 import { LinkedInService } from './linkedin';
 import { YouTubeService } from './youtube';
+import { downloadYouTubeVideo, cleanupVideoFile, isYouTubeUrl } from '@/lib/utils/video-download';
 
 import type { Connection } from '@/types';
 
+export type PostRequest = {
+  connectionId: string;
+  videoUrl: string;
+  caption: string;
+  youtubeOptions?: {
+    title?: string;
+    description?: string;
+    privacy?: 'public' | 'unlisted' | 'private';
+    tags?: string[];
+    categoryId?: string;
+  };
+  linkedinOptions?: {
+    visibility?: 'PUBLIC' | 'CONNECTIONS';
+  };
+}
+
+export type PostResultResponse = {
+  success: boolean;
+  platform: string;
+  platformPostId?: string;
+  platformUrl?: string;
+  error?: string;
+}
+
+// Legacy types for backward compatibility
 export type CrossPostRequest = {
   sourceConnectionId: string;
   targetConnectionId: string;
   sourceVideoUrl: string;
   sourceCaption: string;
-  // Optional overrides
   customCaption?: string;
   youtubeOptions?: {
     title?: string;
@@ -81,7 +106,74 @@ export function linkedInToYouTubeMetadata(
 }
 
 /**
+ * Post a video to a connected platform
+ * Simplified API - just pick destination and post
+ */
+export async function postToConnection(request: PostRequest): Promise<PostResultResponse> {
+  try {
+    const connection = await getConnection(request.connectionId);
+
+    if (!connection) {
+      return {
+        success: false,
+        platform: 'unknown',
+        error: 'Connection not found',
+      };
+    }
+
+    const platform = connection.platform;
+
+    if (!['youtube', 'linkedin'].includes(platform)) {
+      return {
+        success: false,
+        platform,
+        error: `Platform ${platform} not supported for posting`,
+      };
+    }
+
+    let result: PostResult;
+
+    if (platform === 'linkedin') {
+      result = await postToLinkedIn(
+        connection,
+        request.videoUrl,
+        request.caption,
+        request.linkedinOptions
+      );
+    } else if (platform === 'youtube') {
+      result = await postToYouTube(
+        connection,
+        request.videoUrl,
+        request.caption,
+        request.youtubeOptions
+      );
+    } else {
+      return {
+        success: false,
+        platform,
+        error: 'Invalid platform',
+      };
+    }
+
+    return {
+      success: result.success,
+      platform,
+      platformPostId: result.platformPostId,
+      platformUrl: result.platformUrl,
+      error: result.error,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      platform: 'unknown',
+      error: error instanceof Error ? error.message : 'Post failed',
+    };
+  }
+}
+
+/**
  * Cross-post a video from one platform to another
+ * @deprecated Use postToConnection instead
  */
 export async function crossPostVideo(request: CrossPostRequest): Promise<CrossPostResult> {
   try {
@@ -175,6 +267,7 @@ export async function crossPostVideo(request: CrossPostRequest): Promise<CrossPo
 
 /**
  * Post video to LinkedIn
+ * For YouTube URLs, download the video first then upload
  */
 async function postToLinkedIn(
   connection: Connection,
@@ -184,6 +277,56 @@ async function postToLinkedIn(
 ): Promise<PostResult> {
   const service = new LinkedInService(connection);
 
+  // Check if this is a YouTube URL
+  if (isYouTubeUrl(videoUrl)) {
+    console.log('Downloading YouTube video for LinkedIn upload...');
+
+    // Try to download the actual video
+    const downloadResult = await downloadYouTubeVideo(videoUrl);
+
+    if (downloadResult.success && downloadResult.buffer) {
+      console.log('Video downloaded, uploading to LinkedIn...');
+
+      try {
+        // Upload the actual video to LinkedIn
+        const result = await service.postWithVideoBuffer(
+          caption,
+          downloadResult.buffer,
+          options?.visibility || 'PUBLIC'
+        );
+
+        // Clean up temp file
+        if (downloadResult.filePath) {
+          cleanupVideoFile(downloadResult.filePath);
+        }
+
+        return result;
+      } catch (error) {
+        // Clean up on error
+        if (downloadResult.filePath) {
+          cleanupVideoFile(downloadResult.filePath);
+        }
+
+        // Fall back to text post with link
+        console.error('Failed to upload video to LinkedIn, falling back to link:', error);
+        const postText = `${caption}\n\n🎥 ${videoUrl}`;
+        return service.post({
+          text: postText,
+          metadata: { visibility: options?.visibility || 'PUBLIC' },
+        });
+      }
+    } else {
+      // yt-dlp not available or download failed, fall back to link
+      console.log('Video download failed, posting link instead:', downloadResult.error);
+      const postText = `${caption}\n\n🎥 ${videoUrl}`;
+      return service.post({
+        text: postText,
+        metadata: { visibility: options?.visibility || 'PUBLIC' },
+      });
+    }
+  }
+
+  // For direct video URLs, try to upload
   return service.post({
     text: caption,
     mediaUrl: videoUrl,

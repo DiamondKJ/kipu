@@ -1,11 +1,11 @@
-import { ArrowLeft, ArrowRight, Play, Plus, Settings, Trash2, Zap } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Plus, Settings, Trash2, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
+import { WorkflowControls } from '@/components/workflows/workflow-controls';
 import { createClient } from '@/lib/supabase/server';
 
 
@@ -70,19 +70,7 @@ export default async function WorkflowEditorPage({ params }: PageProps) {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-zinc-500">
-              {workflow.is_active ? 'Active' : 'Inactive'}
-            </span>
-            <Switch
-              checked={workflow.is_active}
-              className="data-[state=checked]:bg-teal-500"
-            />
-          </div>
-          <Button variant="outline" className="border-zinc-700">
-            <Play className="h-4 w-4 mr-2" />
-            Run Now
-          </Button>
+          <WorkflowControls workflowId={workflow.id} isActive={workflow.is_active} />
           <Button variant="outline" size="icon" className="border-zinc-700">
             <Settings className="h-4 w-4" />
           </Button>

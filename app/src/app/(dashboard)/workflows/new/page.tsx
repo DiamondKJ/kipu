@@ -51,24 +51,28 @@ export default function NewWorkflowPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  // Fetch user's connections
+  // Fetch user's connections via API
   useEffect(() => {
     async function fetchConnections() {
       setLoadingConnections(true);
-      const { data, error } = await supabase
-        .from('connections')
-        .select('id, platform, platform_username, platform_display_name, platform_avatar_url, is_active')
-        .eq('is_active', true)
-        .in('platform', ['youtube', 'linkedin']); // Only YouTube and LinkedIn for now
-
-      if (!error && data) {
-        setConnections(data as Connection[]);
+      try {
+        const res = await fetch('/api/connections');
+        if (res.ok) {
+          const data = await res.json();
+          // Filter to only YouTube and LinkedIn for now
+          const filtered = (data.connections || []).filter(
+            (c: Connection) => c.platform === 'youtube' || c.platform === 'linkedin'
+          );
+          setConnections(filtered);
+        }
+      } catch (err) {
+        console.error('Failed to fetch connections:', err);
       }
       setLoadingConnections(false);
     }
 
     void fetchConnections();
-  }, [supabase]);
+  }, []);
 
   // Get the selected trigger connection
   const triggerConnection = connections.find((c) => c.id === triggerConnectionId);
