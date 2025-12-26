@@ -161,18 +161,6 @@ export async function GET(request: Request, { params }: RouteParams) {
       });
     }
 
-    // TODO: Fetch Facebook Pages and Instagram accounts later in post window rather than here
-    // Fetch Facebook Pages and Instagram accounts if Facebook
-    // let metadata: Record<string, unknown> = {};
-    // if (platformKey === 'facebook') {
-    //   try {
-    //     metadata = await fetchFacebookPagesAndInstagram(tokens.access_token);
-    //   } catch (error) {
-    //     console.error('Failed to fetch Facebook pages and Instagram accounts:', error);
-    //     // Continue without metadata if fetch fails
-    //   }
-    // }
-
     // Get user's team ID (using user.id as team for now)
     const teamId = user.id;
 
@@ -199,11 +187,6 @@ export async function GET(request: Request, { params }: RouteParams) {
         is_active: true,
         updated_at: new Date().toISOString(),
       };
-
-      // Only add metadata if it has data
-      // if (Object.keys(metadata).length > 0) {
-      //   updateData.metadata = metadata;
-      // }
 
       const { error: updateError } = await supabase
         .from('connections')
@@ -235,11 +218,6 @@ export async function GET(request: Request, { params }: RouteParams) {
         scopes: config.scopes,
         is_active: true,
       };
-
-      // Only add metadata if it has data
-      // if (Object.keys(metadata).length > 0) {
-      //   connectionData.metadata = metadata;
-      // }
 
       const { error: insertError } = await supabase.from('connections').insert(connectionData);
 
@@ -402,48 +380,48 @@ interface FacebookPage {
   };
 }
 
-async function fetchFacebookPagesAndInstagram(
-  userAccessToken: string
-): Promise<Record<string, unknown>> {
-  // Fetch pages the user manages
-  const pagesResponse = await fetch(
-    `https://graph.facebook.com/me/accounts?access_token=${userAccessToken}`
-  );
-  const pagesData = await pagesResponse.json();
+// async function fetchFacebookPagesAndInstagram(
+//   userAccessToken: string
+// ): Promise<Record<string, unknown>> {
+//   // Fetch pages the user manages
+//   const pagesResponse = await fetch(
+//     `https://graph.facebook.com/me/accounts?access_token=${userAccessToken}`
+//   );
+//   const pagesData = await pagesResponse.json();
 
-  if (!pagesData.data || !Array.isArray(pagesData.data)) {
-    return { pages: [] };
-  }
+//   if (!pagesData.data || !Array.isArray(pagesData.data)) {
+//     return { pages: [] };
+//   }
 
-  const pages: Array<{
-    id: string;
-    name: string;
-    access_token: string;
-    instagram_business_account_id?: string;
-  }> = [];
+//   const pages: Array<{
+//     id: string;
+//     name: string;
+//     access_token: string;
+//     instagram_business_account_id?: string;
+//   }> = [];
 
-  // Fetch Instagram Business Account for each page
-  for (const page of pagesData.data) {
-    let instagramAccountId: string | undefined;
+//   // Fetch Instagram Business Account for each page
+//   for (const page of pagesData.data) {
+//     let instagramAccountId: string | undefined;
 
-    try {
-      const igResponse = await fetch(
-        `https://graph.facebook.com/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`
-      );
-      const igData = await igResponse.json();
-      instagramAccountId = igData.instagram_business_account?.id;
-    } catch (error) {
-      console.error(`Failed to fetch Instagram account for page ${page.id}:`, error);
-      // Continue without Instagram account
-    }
+//     try {
+//       const igResponse = await fetch(
+//         `https://graph.facebook.com/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`
+//       );
+//       const igData = await igResponse.json();
+//       instagramAccountId = igData.instagram_business_account?.id;
+//     } catch (error) {
+//       console.error(`Failed to fetch Instagram account for page ${page.id}:`, error);
+//       // Continue without Instagram account
+//     }
 
-    pages.push({
-      id: page.id,
-      name: page.name,
-      access_token: page.access_token,
-      instagram_business_account_id: instagramAccountId,
-    });
-  }
+//     pages.push({
+//       id: page.id,
+//       name: page.name,
+//       access_token: page.access_token,
+//       instagram_business_account_id: instagramAccountId,
+//     });
+//   }
 
-  return { pages };
-}
+//   return { pages };
+// }

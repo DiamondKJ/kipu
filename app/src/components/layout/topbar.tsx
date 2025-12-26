@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -43,9 +44,12 @@ export function Topbar() {
         <Button
           size="sm"
           className="bg-solar-gold hover:bg-solar-gold/90 text-void font-medium gravity-pull"
+          asChild
         >
-          <Plus className="h-4 w-4 mr-2" />
-          Create
+          <Link href="/post">
+            <Plus className="h-4 w-4 mr-2" />
+            Create
+          </Link>
         </Button>
 
         <Button
