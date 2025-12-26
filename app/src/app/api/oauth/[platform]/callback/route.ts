@@ -161,16 +161,17 @@ export async function GET(request: Request, { params }: RouteParams) {
       });
     }
 
+    // TODO: Fetch Facebook Pages and Instagram accounts later in post window rather than here
     // Fetch Facebook Pages and Instagram accounts if Facebook
-    let metadata: Record<string, unknown> = {};
-    if (platformKey === 'facebook') {
-      try {
-        metadata = await fetchFacebookPagesAndInstagram(tokens.access_token);
-      } catch (error) {
-        console.error('Failed to fetch Facebook pages and Instagram accounts:', error);
-        // Continue without metadata if fetch fails
-      }
-    }
+    // let metadata: Record<string, unknown> = {};
+    // if (platformKey === 'facebook') {
+    //   try {
+    //     metadata = await fetchFacebookPagesAndInstagram(tokens.access_token);
+    //   } catch (error) {
+    //     console.error('Failed to fetch Facebook pages and Instagram accounts:', error);
+    //     // Continue without metadata if fetch fails
+    //   }
+    // }
 
     // Get user's team ID (using user.id as team for now)
     const teamId = user.id;
@@ -200,9 +201,9 @@ export async function GET(request: Request, { params }: RouteParams) {
       };
 
       // Only add metadata if it has data
-      if (Object.keys(metadata).length > 0) {
-        updateData.metadata = metadata;
-      }
+      // if (Object.keys(metadata).length > 0) {
+      //   updateData.metadata = metadata;
+      // }
 
       const { error: updateError } = await supabase
         .from('connections')
@@ -236,9 +237,9 @@ export async function GET(request: Request, { params }: RouteParams) {
       };
 
       // Only add metadata if it has data
-      if (Object.keys(metadata).length > 0) {
-        connectionData.metadata = metadata;
-      }
+      // if (Object.keys(metadata).length > 0) {
+      //   connectionData.metadata = metadata;
+      // }
 
       const { error: insertError } = await supabase.from('connections').insert(connectionData);
 
