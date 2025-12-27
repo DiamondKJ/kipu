@@ -11,6 +11,17 @@ interface FacebookPageData {
   instagram_business_account_id?: string;
 }
 
+interface PostResult {
+  platform: string;
+  success: boolean;
+  error?: string;
+}
+
+interface PostParams {
+  message: string;
+  imageUrl: string | null;
+}
+
 // Helper function to wait for Instagram media to be ready
 async function waitForInstagramMedia(
   igId: string,
@@ -35,12 +46,7 @@ async function waitForInstagramMedia(
 
     // Check for OAuth errors - abort immediately
     if (statusData.error) {
-      const isAuthError =
-        statusData.error.code === 190 || // Invalid OAuth token
-        statusData.error.code === 102 || // Session error
-        statusData.error.code === 104;   // Access token error
-
-      if (isAuthError) {
+      if (isOAuthError(statusData.error.code)) {
         if (process.env.DEBUG_OAUTH === 'true') {
           console.log('[Instagram Media Status] OAuth error detected, aborting retries');
         }
@@ -67,6 +73,307 @@ async function waitForInstagramMedia(
   }
 
   throw new Error('Instagram media processing timeout - media not ready after ' + (maxAttempts * delayMs / 1000) + ' seconds');
+}
+
+// Helper function to check if an error is OAuth-related
+function isOAuthError(errorCode: number): boolean {
+  return (
+    errorCode === 190 || // Invalid OAuth token
+    errorCode === 102 || // Session error
+    errorCode === 104    // Access token error
+  );
+}
+
+// Helper function to publish Instagram media with retry logic
+async function publishInstagramMedia(
+  igId: string,
+  creationId: string,
+  accessToken: string,
+  useFacebookAPI: boolean = false,
+  maxAttempts = 3
+): Promise<void> {
+  const apiDomain = useFacebookAPI ? 'graph.facebook.com' : 'graph.instagram.com';
+  let publishResult: any;
+  let publishSuccess = false;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (process.env.DEBUG_OAUTH === 'true') {
+      console.log('[Instagram Publish Request]', {
+        attempt: attempt + 1,
+        igId,
+        creationId,
+        url: `https://${apiDomain}/${igId}/media_publish`
+      });
+    }
+
+    const publishResponse = await fetch(
+      `https://${apiDomain}/${igId}/media_publish`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creation_id: creationId,
+          access_token: accessToken,
+        }),
+      }
+    );
+
+    publishResult = await publishResponse.json();
+
+    if (process.env.DEBUG_OAUTH === 'true') {
+      console.log('[Instagram Publish Result]', publishResult);
+    }
+
+    // Check if successful
+    if (!publishResult.error) {
+      publishSuccess = true;
+      break;
+    }
+
+    // Check if it's an OAuth/authentication error - no point retrying
+    if (isOAuthError(publishResult.error.code)) {
+      if (process.env.DEBUG_OAUTH === 'true') {
+        console.log('[Instagram Publish] OAuth error detected, aborting retries');
+      }
+      break; // Don't retry for auth errors
+    }
+
+    // Check if it's the "media not ready" error (code 9007, subcode 2207027)
+    const isMediaNotReadyError =
+      publishResult.error.code === 9007 &&
+      publishResult.error.error_subcode === 2207027;
+
+    if (isMediaNotReadyError && attempt < maxAttempts - 1) {
+      // Wait longer before retry
+      const retryDelay = 5000 + (attempt * 2000); // 5s, 7s, 9s
+      if (process.env.DEBUG_OAUTH === 'true') {
+        console.log(`[Instagram Publish] Media not ready, retrying in ${retryDelay}ms...`);
+      }
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+    } else {
+      // Different error or last attempt
+      break;
+    }
+  }
+
+  if (!publishSuccess && publishResult.error) {
+    console.error('[Instagram Publish Error]', {
+      error: publishResult.error,
+      igId,
+      creationId
+    });
+    throw new Error(publishResult.error.message);
+  }
+}
+
+// Post to Facebook
+async function postToFacebook(
+  connection: any,
+  params: PostParams,
+  facebookPageId: string
+): Promise<PostResult> {
+  // Fetch Facebook pages to get page access token
+  const pagesResponse = await fetch(
+    `https://graph.facebook.com/me/accounts?access_token=${connection.access_token}`
+  );
+  const pagesData = await pagesResponse.json();
+  const page = pagesData.data?.find((p: any) => p.id === facebookPageId);
+
+  if (!page) {
+    return {
+      platform: 'facebook',
+      success: false,
+      error: 'Facebook page not found',
+    };
+  }
+
+  const pageAccessToken = page.access_token;
+
+  // Post to Facebook
+  if (params.imageUrl) {
+    // Post with image
+    const photoResponse = await fetch(
+      `https://graph.facebook.com/${facebookPageId}/photos`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: params.imageUrl,
+          caption: params.message,
+          access_token: pageAccessToken,
+        }),
+      }
+    );
+
+    const photoResult = await photoResponse.json();
+    if (photoResult.error) {
+      throw new Error(photoResult.error.message);
+    }
+  } else {
+    // Post text only
+    const feedResponse = await fetch(
+      `https://graph.facebook.com/${facebookPageId}/feed`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: params.message,
+          access_token: pageAccessToken,
+        }),
+      }
+    );
+
+    const feedResult = await feedResponse.json();
+    if (feedResult.error) {
+      throw new Error(feedResult.error.message);
+    }
+  }
+
+  return { platform: 'facebook', success: true };
+}
+
+// Post to Instagram via Facebook Page
+async function postToInstagramViaFacebookPage(
+  facebookPageId: string,
+  pageAccessToken: string,
+  params: PostParams
+): Promise<PostResult> {
+  if (!params.imageUrl) {
+    return {
+      platform: 'instagram',
+      success: false,
+      error: 'Instagram requires an image',
+    };
+  }
+
+  // Fetch Instagram account ID
+  const igResponse = await fetch(
+    `https://graph.facebook.com/${facebookPageId}?fields=instagram_business_account&access_token=${pageAccessToken}`
+  );
+  const igData = await igResponse.json();
+  const igId = igData.instagram_business_account?.id;
+
+  if (process.env.DEBUG_OAUTH === 'true') {
+    console.log('[Instagram Account ID]', {
+      facebookPageId,
+      igId,
+      hasIgAccount: !!igId
+    });
+  }
+
+  if (!igId) {
+    return {
+      platform: 'instagram',
+      success: false,
+      error: 'Instagram account not linked to page',
+    };
+  }
+
+  // Create media container
+  const mediaResponse = await fetch(
+    `https://graph.facebook.com/${igId}/media`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image_url: params.imageUrl,
+        caption: params.message,
+        access_token: pageAccessToken,
+      }),
+    }
+  );
+
+  const mediaResult = await mediaResponse.json();
+  if (mediaResult.error) {
+    throw new Error(mediaResult.error.message);
+  }
+
+  if (process.env.DEBUG_OAUTH === 'true') {
+    console.log('[Instagram Media Created]', { creationId: mediaResult.id });
+  }
+
+  // Wait for Instagram to process the media
+  await waitForInstagramMedia(igId, mediaResult.id, pageAccessToken, true);
+
+  // Add extra delay after FINISHED status
+  await new Promise(resolve => setTimeout(resolve, 3000));
+
+  // Publish media
+  await publishInstagramMedia(igId, mediaResult.id, pageAccessToken, true);
+
+  return { platform: 'instagram', success: true };
+}
+
+// Post to direct Instagram Business account
+async function postToDirectInstagram(
+  connection: any,
+  params: PostParams
+): Promise<PostResult> {
+  if (!params.imageUrl) {
+    return {
+      platform: 'instagram',
+      success: false,
+      error: 'Instagram requires an image',
+    };
+  }
+
+  const igId = connection.platform_user_id;
+  const accessToken = connection.access_token;
+
+  if (process.env.DEBUG_OAUTH === 'true') {
+    console.log('[Direct Instagram Post]', {
+      igId,
+      hasAccessToken: !!accessToken,
+      tokenPrefix: accessToken?.substring(0, 15) + '...',
+      imageUrl: params.imageUrl
+    });
+  }
+
+  // Create media container
+  const mediaResponse = await fetch(
+    `https://graph.instagram.com/${igId}/media`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image_url: params.imageUrl,
+        caption: params.message,
+        access_token: accessToken,
+      }),
+    }
+  );
+
+  const mediaResult = await mediaResponse.json();
+
+  if (process.env.DEBUG_OAUTH === 'true') {
+    console.log('[Direct Instagram Media Response]', {
+      success: !mediaResult.error,
+      creationId: mediaResult.id,
+      error: mediaResult.error,
+      errorCode: mediaResult.error?.code
+    });
+  }
+
+  if (mediaResult.error) {
+    const errorMsg = `${mediaResult.error.message || 'Unknown error'}${mediaResult.error.code ? ` (Code: ${mediaResult.error.code})` : ''}`;
+    console.error('[Direct Instagram Media Error]', mediaResult.error);
+    throw new Error(errorMsg);
+  }
+
+  if (process.env.DEBUG_OAUTH === 'true') {
+    console.log('[Direct Instagram Media Created]', { creationId: mediaResult.id });
+  }
+
+  // Wait for Instagram to process the media
+  await waitForInstagramMedia(igId, mediaResult.id, accessToken);
+
+  // Add extra delay after FINISHED status
+  await new Promise(resolve => setTimeout(resolve, 3000));
+
+  // Publish media
+  await publishInstagramMedia(igId, mediaResult.id, accessToken, false);
+
+  return { platform: 'instagram', success: true };
 }
 
 export async function POST(request: NextRequest) {
@@ -151,7 +458,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const results: Array<{ platform: string; success: boolean; error?: string }> = [];
+    const results: PostResult[] = [];
+    const postParams: PostParams = { message, imageUrl };
 
     // Publish to each platform
     for (const connection of connections) {
@@ -166,334 +474,32 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          // Fetch Facebook pages to get page access token
-          const pagesResponse = await fetch(
-            `https://graph.facebook.com/me/accounts?access_token=${connection.access_token}`
-          );
-          const pagesData = await pagesResponse.json();
-          const page = pagesData.data?.find((p: any) => p.id === facebookPageId);
-
-          if (!page) {
-            results.push({
-              platform: 'facebook',
-              success: false,
-              error: 'Facebook page not found',
-            });
-            continue;
-          }
-
-          const pageAccessToken = page.access_token;
-
           // Post to Facebook
-          if (imageUrl) {
-            // Post with image
-            const photoResponse = await fetch(
-              `https://graph.facebook.com/${facebookPageId}/photos`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  url: imageUrl,
-                  caption: message,
-                  access_token: pageAccessToken,
-                }),
-              }
-            );
-
-            const photoResult = await photoResponse.json();
-            if (photoResult.error) {
-              throw new Error(photoResult.error.message);
-            }
-
-            results.push({ platform: 'facebook', success: true });
-          } else {
-            // Post text only
-            const feedResponse = await fetch(
-              `https://graph.facebook.com/${facebookPageId}/feed`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  message,
-                  access_token: pageAccessToken,
-                }),
-              }
-            );
-
-            const feedResult = await feedResponse.json();
-            if (feedResult.error) {
-              throw new Error(feedResult.error.message);
-            }
-
-            results.push({ platform: 'facebook', success: true });
-          }
+          const fbResult = await postToFacebook(connection, postParams, facebookPageId);
+          results.push(fbResult);
 
           // Post to Instagram if requested
           if (postToInstagram && imageUrl) {
-            // Fetch Instagram account ID
-            const igResponse = await fetch(
-              `https://graph.facebook.com/${facebookPageId}?fields=instagram_business_account&access_token=${pageAccessToken}`
+            // Get page access token
+            const pagesResponse = await fetch(
+              `https://graph.facebook.com/me/accounts?access_token=${connection.access_token}`
             );
-            const igData = await igResponse.json();
-            const igId = igData.instagram_business_account?.id;
+            const pagesData = await pagesResponse.json();
+            const page = pagesData.data?.find((p: any) => p.id === facebookPageId);
 
-            if (process.env.DEBUG_OAUTH === 'true') {
-              console.log('[Instagram Account ID]', {
+            if (page) {
+              const igResult = await postToInstagramViaFacebookPage(
                 facebookPageId,
-                igId,
-                hasIgAccount: !!igId
-              });
-            }
-
-            if (igId) {
-              // Create media container
-              const mediaResponse = await fetch(
-                `https://graph.facebook.com/${igId}/media`,
-                {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    image_url: imageUrl,
-                    caption: message,
-                    access_token: pageAccessToken,
-                  }),
-                }
+                page.access_token,
+                postParams
               );
-
-              const mediaResult = await mediaResponse.json();
-              if (mediaResult.error) {
-                throw new Error(mediaResult.error.message);
-              }
-
-              if (process.env.DEBUG_OAUTH === 'true') {
-                console.log('[Instagram Media Created]', { creationId: mediaResult.id });
-              }
-
-              // Wait for Instagram to process the media (via Facebook Pages - use Facebook API)
-              await waitForInstagramMedia(igId, mediaResult.id, pageAccessToken, true);
-
-              // Add extra delay after FINISHED status (Instagram needs a moment even after status is FINISHED)
-              await new Promise(resolve => setTimeout(resolve, 3000));
-
-              // Publish media with retry logic for transient errors
-              let publishResult;
-              let publishSuccess = false;
-              const maxPublishAttempts = 3;
-
-              for (let attempt = 0; attempt < maxPublishAttempts; attempt++) {
-                if (process.env.DEBUG_OAUTH === 'true') {
-                  console.log('[Instagram Publish Request]', {
-                    attempt: attempt + 1,
-                    igId,
-                    creationId: mediaResult.id,
-                    url: `https://graph.facebook.com/${igId}/media_publish`
-                  });
-                }
-
-                const publishResponse = await fetch(
-                  `https://graph.facebook.com/${igId}/media_publish`,
-                  {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      creation_id: mediaResult.id,
-                      access_token: pageAccessToken,
-                    }),
-                  }
-                );
-
-                publishResult = await publishResponse.json();
-
-                if (process.env.DEBUG_OAUTH === 'true') {
-                  console.log('[Instagram Publish Result]', publishResult);
-                }
-
-                // Check if successful
-                if (!publishResult.error) {
-                  publishSuccess = true;
-                  break;
-                }
-
-                // Check if it's the "media not ready" error (code 9007, subcode 2207027)
-                const isMediaNotReadyError =
-                  publishResult.error.code === 9007 &&
-                  publishResult.error.error_subcode === 2207027;
-
-                if (isMediaNotReadyError && attempt < maxPublishAttempts - 1) {
-                  // Wait longer before retry
-                  const retryDelay = 5000 + (attempt * 2000); // 5s, 7s, 9s
-                  if (process.env.DEBUG_OAUTH === 'true') {
-                    console.log(`[Instagram Publish] Media not ready, retrying in ${retryDelay}ms...`);
-                  }
-                  await new Promise(resolve => setTimeout(resolve, retryDelay));
-                } else {
-                  // Different error or last attempt
-                  break;
-                }
-              }
-
-              if (!publishSuccess && publishResult.error) {
-                console.error('[Instagram Publish Error]', {
-                  error: publishResult.error,
-                  igId,
-                  creationId: mediaResult.id
-                });
-                throw new Error(publishResult.error.message);
-              }
-
-              results.push({ platform: 'instagram', success: true });
-            } else {
-              results.push({
-                platform: 'instagram',
-                success: false,
-                error: 'Instagram account not linked to page',
-              });
+              results.push(igResult);
             }
           }
         } else if (connection.platform === 'instagram') {
           // Direct Instagram business account posting
-          if (!imageUrl) {
-            results.push({
-              platform: 'instagram',
-              success: false,
-              error: 'Instagram requires an image',
-            });
-            continue;
-          }
-
-          const igId = connection.platform_user_id;
-          const accessToken = connection.access_token;
-
-          if (process.env.DEBUG_OAUTH === 'true') {
-            console.log('[Direct Instagram Post]', {
-              igId,
-              hasAccessToken: !!accessToken,
-              tokenPrefix: accessToken?.substring(0, 15) + '...',
-              imageUrl
-            });
-          }
-
-          // Create media container
-          const mediaResponse = await fetch(
-            `https://graph.instagram.com/${igId}/media`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                image_url: imageUrl,
-                caption: message,
-                access_token: accessToken,
-              }),
-            }
-          );
-
-          const mediaResult = await mediaResponse.json();
-
-          if (process.env.DEBUG_OAUTH === 'true') {
-            console.log('[Direct Instagram Media Response]', {
-              success: !mediaResult.error,
-              creationId: mediaResult.id,
-              error: mediaResult.error,
-              errorCode: mediaResult.error?.code
-            });
-          }
-
-          if (mediaResult.error) {
-            const errorMsg = `${mediaResult.error.message || 'Unknown error'}${mediaResult.error.code ? ` (Code: ${mediaResult.error.code})` : ''}`;
-            console.error('[Direct Instagram Media Error]', mediaResult.error);
-            throw new Error(errorMsg);
-          }
-
-          if (process.env.DEBUG_OAUTH === 'true') {
-            console.log('[Direct Instagram Media Created]', { creationId: mediaResult.id });
-          }
-
-          // Wait for Instagram to process the media
-          await waitForInstagramMedia(igId, mediaResult.id, accessToken);
-
-          // Add extra delay after FINISHED status
-          await new Promise(resolve => setTimeout(resolve, 3000));
-
-          // Publish media with retry logic
-          let publishResult;
-          let publishSuccess = false;
-          const maxPublishAttempts = 3;
-
-          for (let attempt = 0; attempt < maxPublishAttempts; attempt++) {
-            if (process.env.DEBUG_OAUTH === 'true') {
-              console.log('[Direct Instagram Publish Request]', {
-                attempt: attempt + 1,
-                igId,
-                creationId: mediaResult.id,
-                url: `https://graph.instagram.com/${igId}/media_publish`
-              });
-            }
-
-            const publishResponse = await fetch(
-              `https://graph.instagram.com/${igId}/media_publish`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  creation_id: mediaResult.id,
-                  access_token: accessToken,
-                }),
-              }
-            );
-
-            publishResult = await publishResponse.json();
-
-            if (process.env.DEBUG_OAUTH === 'true') {
-              console.log('[Direct Instagram Publish Result]', publishResult);
-            }
-
-            // Check if successful
-            if (!publishResult.error) {
-              publishSuccess = true;
-              break;
-            }
-
-            // Check if it's an OAuth/authentication error - no point retrying
-            const isAuthError =
-              publishResult.error.code === 190 || // Invalid OAuth token
-              publishResult.error.code === 102 || // Session error
-              publishResult.error.code === 104;   // Access token error
-
-            if (isAuthError) {
-              if (process.env.DEBUG_OAUTH === 'true') {
-                console.log('[Direct Instagram Publish] OAuth error detected, aborting retries');
-              }
-              break; // Don't retry for auth errors
-            }
-
-            // Check if it's the "media not ready" error (code 9007, subcode 2207027)
-            const isMediaNotReadyError =
-              publishResult.error.code === 9007 &&
-              publishResult.error.error_subcode === 2207027;
-
-            if (isMediaNotReadyError && attempt < maxPublishAttempts - 1) {
-              // Wait longer before retry
-              const retryDelay = 5000 + (attempt * 2000); // 5s, 7s, 9s
-              if (process.env.DEBUG_OAUTH === 'true') {
-                console.log(`[Direct Instagram Publish] Media not ready, retrying in ${retryDelay}ms...`);
-              }
-              await new Promise(resolve => setTimeout(resolve, retryDelay));
-            } else {
-              // Different error or last attempt
-              break;
-            }
-          }
-
-          if (!publishSuccess && publishResult.error) {
-            console.error('[Direct Instagram Publish Error]', {
-              error: publishResult.error,
-              igId,
-              creationId: mediaResult.id
-            });
-            throw new Error(publishResult.error.message);
-          }
-
-          results.push({ platform: 'instagram', success: true });
+          const igResult = await postToDirectInstagram(connection, postParams);
+          results.push(igResult);
         } else {
           // Other platforms not implemented yet
           results.push({
