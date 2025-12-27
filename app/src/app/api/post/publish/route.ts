@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
@@ -101,6 +101,7 @@ export async function POST(request: NextRequest) {
 
     // Handle image upload if present
     let imageUrl: string | null = null;
+    let imageFilePath: string | null = null;
     if (imageFile) {
       const uploadDir = join(process.cwd(), 'public', 'uploads');
 
@@ -112,8 +113,8 @@ export async function POST(request: NextRequest) {
       // Save file
       const buffer = Buffer.from(await imageFile.arrayBuffer());
       const filename = `${Date.now()}-${imageFile.name}`;
-      const filepath = join(uploadDir, filename);
-      await writeFile(filepath, buffer);
+      imageFilePath = join(uploadDir, filename);
+      await writeFile(imageFilePath, buffer);
 
       // Generate public URL
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -348,6 +349,28 @@ export async function POST(request: NextRequest) {
 
     // Check if any posts succeeded
     const successCount = results.filter((r) => r.success).length;
+
+    // Schedule delayed cleanup for uploaded image file
+    // Wait before deleting to ensure platforms have time to download the image
+    if (successCount > 0 && imageFilePath) {
+      const fileToDelete = imageFilePath;
+      // Don't block the response - schedule cleanup in background
+      setImmediate(async () => {
+        try {
+          // Wait 60 seconds to ensure platforms downloaded the image
+          await new Promise(resolve => setTimeout(resolve, 60000));
+          await unlink(fileToDelete);
+          if (process.env.DEBUG_OAUTH === 'true') {
+            console.log('[File Cleanup] Deleted uploaded image after 60s delay:', fileToDelete);
+          }
+        } catch (error) {
+          if (process.env.DEBUG_OAUTH === 'true') {
+            console.error('[File Cleanup] Failed to delete uploaded image:', error);
+          }
+          // Don't fail - file will be cleaned up by scheduled job
+        }
+      });
+    }
 
     if (successCount === 0) {
       return NextResponse.json(
